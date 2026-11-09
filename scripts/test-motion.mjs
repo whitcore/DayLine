@@ -1,0 +1,44 @@
+import {_electron as electron,expect} from '@playwright/test';
+import {mkdir,mkdtemp,writeFile} from 'node:fs/promises';
+import {createRequire} from 'node:module';
+import path from 'node:path';
+const require=createRequire(import.meta.url),{motionFixture}=require('../tests/motion-fixture.cjs');
+const root=path.resolve('.');await mkdir('test-results',{recursive:true});const dir=await mkdtemp(path.join(root,'test-results','motion-'));
+await writeFile(path.join(dir,'dayline.json'),JSON.stringify(motionFixture()));
+const env={...process.env,DAYLINE_DATA_DIR:dir};delete env.ELECTRON_RUN_AS_NODE;
+const app=await electron.launch({...(process.env.DAYLINE_TEST_EXE?{executablePath:process.env.DAYLINE_TEST_EXE,args:['--disable-backgrounding-occluded-windows']}:{args:[root,'--disable-backgrounding-occluded-windows']}),cwd:root,env});
+const errors=[],external=[];let page;const pause=ms=>new Promise(r=>setTimeout(r,ms));
+try{
+ page=await app.firstWindow();page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(/^https?:/.test(r.url()))external.push(r.url());});
+ await expect(page.locator('h1')).toHaveText('Сегодня.');await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.show();w.focus();w.webContents.setBackgroundThrottling(false);});await pause(700);for(const id of ['code.exe','firefox.exe','telegram.exe','hades.exe'])await expect(page.locator(`[data-app-id="${id}"]`)).toBeVisible();await pause(1200);
+ expect(await page.evaluate(()=>getComputedStyle(document.body).backgroundColor)).not.toBe('rgb(255, 255, 255)');
+ await page.getByRole('button',{name:'Свернуть меню',exact:true}).click();await expect(page.locator('.app')).toHaveClass(/sidebar-collapsed/);await pause(600);expect(await page.locator('.sidebar').evaluate(e=>e.getBoundingClientRect().width)).toBeLessThan(90);
+ await page.getByRole('button',{name:'Развернуть меню',exact:true}).click();
+ await page.getByRole('button',{name:'Статистика',exact:true}).click();await expect(page.locator('[data-route=stats]')).toBeVisible();
+ const running=await page.evaluate(()=>document.getAnimations().filter(a=>a.playState==='running').length);expect(running).toBeGreaterThan(0);
+ await expect(page.locator('.recharts-wrapper')).toBeVisible();await expect(page.locator('.week-column')).toHaveCount(7);await pause(1400);
+ await page.screenshot({path:'test-results/dayline-1.2-statistics.png',fullPage:true});
+ const checkbox=page.getByRole('checkbox',{name:'Показать Отдых',exact:true});await checkbox.click();await expect(checkbox).not.toBeChecked();await checkbox.click();await expect(checkbox).toBeChecked();
+ await page.evaluate(()=>window.__daylineChart=document.querySelector('.recharts-wrapper'));await pause(2300);expect(await page.evaluate(()=>window.__daylineChart===document.querySelector('.recharts-wrapper'))).toBe(true);
+ await page.getByRole('button',{name:'Программы',exact:true}).click();await expect(page.locator('[data-route=programs]')).toBeVisible();
+ await page.getByRole('group',{name:'Категории программ'}).getByRole('button',{name:'Отдых',exact:true}).click();await expect(page.locator('[data-app-id="hades.exe"]')).toBeVisible();await expect(page.locator('[data-app-id="code.exe"]')).toHaveCount(0);expect(await page.locator('.program-row .category-trigger').evaluateAll(nodes=>nodes.every(n=>n.textContent.includes('Отдых')))).toBe(true);
+ await page.getByRole('group',{name:'Категории программ'}).getByRole('button',{name:'Все',exact:true}).click();await page.getByLabel('Поиск программы').fill('Visual Studio Code');await expect(page.locator('.program-row')).toHaveCount(1);await page.getByLabel('Поиск программы').clear();
+ await page.getByRole('button',{name:'Дневник',exact:true}).click();await expect(page.locator('[data-route=journal]')).toBeVisible();await page.getByLabel('Мысли и заметки').fill('Черновик не теряется при анимированном переходе.');await page.getByRole('button',{name:'Отлично',exact:true}).click();
+ await page.getByRole('button',{name:'Статистика',exact:true}).click();await expect(page.locator('[data-route=stats]')).toBeVisible();await page.getByRole('button',{name:'Дневник',exact:true}).click();await expect(page.getByLabel('Мысли и заметки')).toHaveValue('Черновик не теряется при анимированном переходе.');await expect(page.getByRole('button',{name:'Отлично',exact:true})).toHaveAttribute('aria-pressed','true');
+ await page.getByRole('button',{name:'Сегодня',exact:true}).click();await expect(page.locator('[data-route=today]')).toBeVisible();
+ const editor=page.getByLabel('Мысли и заметки');await editor.fill('Проверка фокуса ввода');await editor.focus();await page.evaluate(()=>window.__daylineInput=document.activeElement);await pause(2300);expect(await page.evaluate(()=>document.activeElement===window.__daylineInput)).toBe(true);
+ await pause(1200);await page.screenshot({path:'test-results/dayline-1.2-overview.png',fullPage:true});
+ const frameWindow=await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.show();w.focus();return {visible:w.isVisible(),minimized:w.isMinimized(),throttled:w.webContents.getBackgroundThrottling()};});
+ await page.evaluate(()=>{window.__frameSamples=[];window.__frameSampling=true;let previous=performance.now();function frame(now){window.__frameSamples.push(now-previous);previous=now;if(window.__frameSampling)requestAnimationFrame(frame);}requestAnimationFrame(frame);});
+ for(const [label,key] of [['Статистика','stats'],['Программы','programs'],['Дневник','journal'],['Сегодня','today']]){await page.getByRole('button',{name:label,exact:true}).click();await expect(page.locator(`[data-route=${key}]`)).toBeVisible();await pause(180);}
+ const frames=await page.evaluate(()=>{window.__frameSampling=false;return window.__frameSamples.slice(2);});
+ const sorted=frames.toSorted((a,b)=>a-b);const median=sorted[Math.floor(sorted.length/2)],p95=sorted[Math.floor(sorted.length*.95)];
+ await page.getByRole('button',{name:'Настройки',exact:true}).click();await expect(page.locator('[data-route=settings]')).toBeVisible();await page.getByRole('switch',{name:'Анимации интерфейса',exact:true}).click();await expect(page.locator('html')).toHaveAttribute('data-motion','off');
+ await page.getByRole('button',{name:'Сегодня',exact:true}).click();await expect(page.locator('[data-route=today]')).toBeVisible();await pause(1300);const reduced=await page.evaluate(()=>document.getAnimations().filter(a=>a.playState==='running').length);expect(reduced).toBe(0);
+ await page.getByRole('button',{name:'Настройки',exact:true}).click();await page.getByRole('switch',{name:'Анимации интерфейса',exact:true}).click();await expect(page.locator('html')).toHaveAttribute('data-motion','on');
+ await page.emulateMedia({reducedMotion:'reduce'});await expect(page.locator('html')).toHaveAttribute('data-motion','reduced');await page.getByRole('button',{name:'Сегодня',exact:true}).click();await expect(page.locator('[data-route=today]')).toBeVisible();await pause(600);expect(await page.evaluate(()=>document.getAnimations().filter(a=>a.playState==='running').length)).toBe(0);
+ await page.setViewportSize({width:900,height:760});await page.screenshot({path:'test-results/dayline-1.2-compact.png',fullPage:true});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(errors).toEqual([]);expect(external).toEqual([]);
+ expect(frames.length).toBeGreaterThan(40);expect(median).toBeLessThan(25);
+ const report={frameWindow,packaged:!!process.env.DAYLINE_TEST_EXE,fixtureDataOnly:true,animatedNavigation:true,collapse:true,reuiChart:true,coloredCheckbox:true,programFilters:true,preservedDraft:true,preservedInputFocus:true,stableChartDOM:true,reducedMotion:true,systemReducedMotion:true,frameMedianMs:+median.toFixed(2),frameP95Ms:+p95.toFixed(2),framesOver25ms:frames.filter(t=>t>25).length,frameCount:frames.length,estimatedRefreshFps:Math.round(1000/median),runtimeErrors:errors,externalRequests:external};
+ await writeFile('test-results/motion-report.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report));
+}catch(error){if(page)await page.screenshot({path:'test-results/motion-failure.png',fullPage:true}).catch(()=>{});throw error;}finally{await app.close();}
