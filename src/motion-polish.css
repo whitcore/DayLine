@@ -1,0 +1,333 @@
+:root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+}
+.sidebar,
+.workspace {
+  transition: none;
+}
+.sidebar nav {
+  position: relative;
+  isolation: isolate;
+}
+.sidebar nav > button {
+  z-index: 1;
+  isolation: auto;
+}
+.sidebar nav > button.active,
+.sidebar nav > button.active .nav-icon {
+  color: var(--text-secondary);
+}
+.nav-highlight {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  gap: 10px;
+  background: var(--accent-fill);
+  z-index: 2;
+  pointer-events: none;
+  color: var(--on-accent);
+  overflow: hidden;
+  clip-path: inset(0 0 100% 0 round 15px);
+}
+.nav-highlight-row {
+  height: 49px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 0 18px;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.sidebar-collapsed .nav-highlight-row {
+  padding: 0;
+  justify-content: center;
+}
+.sidebar-collapsed .nav-highlight-label {
+  display: none;
+}
+.sidebar nav > button:active {
+  scale: 0.98;
+}
+.icon-button,
+.quiet-button,
+.accent-button,
+.danger-button,
+.category-trigger,
+.date-picker button,
+.motion-mode-group button,
+.program-filters button,
+.base-choice button,
+.color-swatches button {
+  transition: transform 160ms var(--ease-out),
+    opacity 160ms var(--ease-out),
+    background-color 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease;
+}
+:is(
+    .icon-button,
+    .quiet-button,
+    .accent-button,
+    .danger-button,
+    .category-trigger,
+    .date-picker button,
+    .motion-mode-group button,
+    .program-filters button,
+    .base-choice button
+  ):active:not(:disabled) {
+  transform: scale(0.97);
+}
+.program-name-line {
+  margin-bottom: 9px;
+}
+.program-name-line strong {
+  margin-bottom: 0;
+}
+.app-icon,
+.nav-icon {
+  transition: transform 160ms var(--ease-out),
+    border-color 160ms ease,
+    color 160ms ease;
+}
+.panel::before {
+  transition: opacity 160ms ease;
+}
+html[data-input="keyboard"] .panel::before {
+  opacity: 0;
+  transition: none;
+}
+@media (hover: none), (pointer: coarse) {
+  .panel:hover::before {
+    opacity: 0;
+  }
+}
+.program-row:hover .app-icon,
+.sidebar nav > button:hover .nav-icon {
+  transform: none;
+}
+.brand:hover .brand-mark i {
+  animation: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  html[data-motion="on"] .program-row:hover .app-icon {
+    transform: translateY(-1px);
+  }
+  html[data-motion="on"] .brand:hover .brand-mark i {
+    transform: scaleY(0.88);
+    transition: transform 160ms var(--ease-out);
+  }
+  html[data-motion="on"] .brand:hover .brand-mark i:nth-child(2) {
+    transform: scaleY(1.08);
+  }
+}
+@media (hover: none), (pointer: coarse) {
+  .program-row:hover .app-icon,
+  .sidebar nav > button:hover .nav-icon,
+  .chart-day-buttons > button:hover,
+  .color-swatches button:hover {
+    transform: none;
+  }
+}
+.motion-mode-group {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-alt);
+  gap: 4px;
+  margin: 7px 0 12px;
+}
+.motion-mode-group button {
+  padding: 10px 4px;
+  border-radius: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.motion-mode-group button[aria-checked="true"] {
+  background: color-mix(in srgb, var(--violet) 10.6%, transparent);
+  color: var(--violet);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--violet) 21.6%, transparent);
+}
+.motion-mode-group button:hover {
+  color: var(--text);
+}
+.motion-mode-description {
+  min-height: 38px;
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--muted);
+  margin-bottom: 14px;
+}
+.motion-demo {
+  height: 182px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 15px;
+  background: var(--surface-alt);
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  isolation: isolate;
+}
+.demo-grid {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 20px 20px;
+  mask-image: radial-gradient(ellipse, #000, transparent 75%);
+  z-index: -1;
+}
+.demo-mini-card {
+  width: min(240px, 85%);
+  padding: 16px 18px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 14px 24px var(--shadow-color);
+}
+.demo-card-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 15px;
+  font-size: 12px;
+  color: var(--text);
+}
+.demo-card-title > span {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.demo-card-title > span > svg {
+  color: var(--violet);
+}
+.demo-card-title > i {
+  width: 19px;
+  height: 19px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--lime) 9.8%, transparent);
+  display: grid;
+  place-items: center;
+  color: var(--lime);
+}
+.demo-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 9px;
+  color: var(--muted);
+  margin-top: 10px;
+}
+.demo-bar > span {
+  width: 42px;
+}
+.demo-bar > div {
+  flex: 1;
+  background: var(--hover);
+  height: 4px;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.demo-bar i {
+  height: 100%;
+  display: block;
+  border-radius: inherit;
+}
+.motion-demo-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+}
+.motion-demo-footer > span {
+  font-size: 10px;
+  color: var(--muted);
+}
+.motion-demo-footer > span::before {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--violet);
+  margin-right: 7px;
+}
+.motion-demo-footer button {
+  font-size: 10px;
+  padding: 9px 10px;
+  white-space: nowrap;
+}
+/* Native dialog backdrop follows the same opacity budget as the panel. */
+.dayline-dialog::backdrop {
+  animation: none;
+  opacity: 1;
+  background: var(--backdrop);
+  transition: opacity 200ms var(--ease-out);
+}
+@starting-style {
+  .dayline-dialog::backdrop {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html:not([data-motion]) *,
+  html:not([data-motion]) *::before,
+  html:not([data-motion]) *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+html[data-motion="reduced"] *,
+html[data-motion="reduced"] *::before,
+html[data-motion="reduced"] *::after {
+  animation: none !important;
+  transition-property: opacity, color, background-color, border-color !important;
+  transition-duration: 120ms !important;
+  scroll-behavior: auto !important;
+}
+html[data-motion="off"] *,
+html[data-motion="off"] *::before,
+html[data-motion="off"] *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+html[data-input="keyboard"] .nav-highlight {
+  transition: none !important;
+}
+html[data-input="keyboard"] .motion-mode-group button {
+  transition: none;
+}
+html[data-input="keyboard"]
+  :is(
+    .icon-button,
+    .quiet-button,
+    .accent-button,
+    .danger-button,
+    .category-trigger,
+    .date-picker button,
+    .motion-mode-group button,
+    .program-filters button,
+    .base-choice button
+  ):active {
+  transform: none;
+}
+html[data-motion="reduced"] .brand:hover .brand-mark i,
+html[data-motion="reduced"] .chart-day-buttons > button:hover {
+  transform: none !important;
+}
+
+.dayline-dialog[data-closing="true"]::backdrop {
+  opacity: 0;
+  transition-duration: 120ms;
+}
+html[data-input="keyboard"] .dayline-dialog::backdrop {
+  transition: none;
+}

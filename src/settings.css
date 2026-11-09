@@ -1,0 +1,134 @@
+.settings-column {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  align-self: start;
+}
+.settings-column > .panel {
+  width: 100%;
+  height: auto;
+  min-height: 0;
+}
+.settings-subsection {
+  padding-top: 18px;
+  margin-top: 18px;
+  border-top: 1px solid var(--border-subtle);
+}
+.settings-subsection:first-of-type {
+  padding-top: 0;
+  margin-top: 0;
+  border: 0;
+}
+.settings-subsection h3 {
+  font-size: 13px;
+  font-weight: 500;
+}
+.settings-subsection > p,
+.settings-footnote {
+  font-size: 11px;
+  line-height: 1.75;
+  color: var(--muted);
+  margin: 7px 0 12px;
+}
+.settings-columns .setting-row {
+  padding: 15px 0;
+  gap: 14px;
+  min-height: 0;
+}
+.settings-columns .setting-row strong {
+  font-size: 12px;
+  font-weight: 500;
+}
+.settings-columns .setting-row p {
+  font-size: 10px;
+  line-height: 1.65;
+  max-width: 300px;
+}
+.settings-columns .section-heading {
+  margin-bottom: 15px;
+}
+.settings-columns h2 {
+  font-size: 16px;
+  font-weight: 500;
+}
+.settings-columns .choice-select-trigger {
+  max-width: 195px;
+  flex-shrink: 0;
+}
+.goal-setting {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  margin: 16px 0;
+}
+.goal-setting > span {
+  flex: 1;
+}
+.goal-setting small {
+  display: block;
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 5px;
+}
+.goal-setting input {
+  width: 76px;
+  background: var(--surface-input);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px;
+}
+.score-formula {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 11px;
+  line-height: 1.7;
+  margin: 15px 0;
+}
+.score-formula small {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  margin-top: 5px;
+}
+.settings-columns .motion-demo {
+  height: 110px;
+}
+.settings-columns .demo-mini-card {
+  padding: 12px 14px;
+  width: 210px;
+}
+.settings-columns .demo-card-title {
+  margin-bottom: 8px;
+}
+.motion-mode-group button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+.motion-mode-group button small {
+  font-size: 9px;
+  line-height: 1.45;
+  font-weight: 400;
+  max-width: 105px;
+  color: var(--muted);
+}
+.motion-mode-group button[aria-checked="true"] small {
+  color: var(--text-secondary);
+}
+.settings-columns .motion-mode-description {
+  min-height: 0;
+}
+.motion-system-note {
+  margin: -4px 0 16px;
+  max-width: 52ch;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}

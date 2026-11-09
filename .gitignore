@@ -1,0 +1,22 @@
+node_modules/
+dist/
+release/
+test-results/
+native/*.exe
+archive/
+.env*
+.tmp/
+*.log
+.codex/
+.agents/
+.vercel/
+dayline.json*
+*.pem
+*.key
+
+# Local implementation notes contain workstation paths and profile diagnostics.
+docs/*verification*.md
+docs/motion*.md
+docs/upgrade-*.md
+docs/superpowers/
+docs/references/
