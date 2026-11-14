@@ -1,3 +1,4 @@
+import { useLocale } from "./i18n.jsx";
 import {
   createContext,
   useContext,
@@ -58,7 +59,14 @@ const colors = [
   "#f47171",
 ];
 export function ProgramsUIProvider({ data, refresh, notify, children }) {
+  const { t, errorText } = useLocale();
   const [modal, setModal] = useState(null);
+  const types = Object.fromEntries(Object.entries(data.types || categories).map(([id, type]) => [
+    id,
+    (categories[id]?.label === type.label || (id === "c-site-study" && type.label === "Учёба"))
+      ? { ...type, label: t(type.label) }
+      : type,
+  ]));
   const run = async (action, message) => {
     try {
       const result = await action();
@@ -66,13 +74,13 @@ export function ProgramsUIProvider({ data, refresh, notify, children }) {
       if (message && result !== false) notify(message);
       return true;
     } catch (e) {
-      notify(e.message || "Не удалось сохранить изменения");
+      notify(errorText(e, "Не удалось сохранить изменения"));
       return false;
     }
   };
   return (
     <Context.Provider
-      value={{ data, types: data.types || categories, run, setModal }}
+      value={{ data, types, run, setModal }}
     >
       {children}
       <AnimatePresence>
@@ -81,12 +89,12 @@ export function ProgramsUIProvider({ data, refresh, notify, children }) {
             key={modal.kind}
             title={
               modal.kind === "mix"
-                ? "Распределение времени"
+                ? t("Распределение времени")
                 : modal.kind === "types"
-                  ? "Твои виды программ"
+                  ? t("Твои виды программ")
                   : modal.kind === "hide"
-                    ? "Убрать программу?"
-                    : "Скрытые программы"
+                    ? t("Убрать программу?")
+                    : t("Скрытые программы")
             }
             onClose={() => setModal(null)}
           >
@@ -97,32 +105,25 @@ export function ProgramsUIProvider({ data, refresh, notify, children }) {
             ) : modal.kind === "hide" ? (
               <div className="remove-app">
                 <p>
-                  <strong>{modal.app.name}</strong> исчезнет из списков. Время и
-                  записи дня сохранятся. Вернуть программу можно через
-                  «Скрытые».
-                </p>
+                  <strong>{modal.app.name}</strong>{" "}{t("исчезнет из списков. Время и записи дня сохранятся. Вернуть программу можно через «Скрытые».")}</p>
                 <div className="dialog-actions">
                   <button
                     className="quiet-button"
                     onClick={() => setModal(null)}
-                  >
-                    Отмена
-                  </button>
+                  >{t("Отмена")}</button>
                   <button
                     className="danger-button"
                     onClick={async () => {
                       if (
                         await run(
                           () => api.hideApp(modal.app.id, true),
-                          "Программа скрыта",
+                          t("Программа скрыта"),
                         )
                       )
                         setModal(null);
                     }}
                   >
-                    <EyeOff size={16} />
-                    Убрать из списка
-                  </button>
+                    <EyeOff size={16} />{t("Убрать из списка")}</button>
                 </div>
               </div>
             ) : (
@@ -135,6 +136,7 @@ export function ProgramsUIProvider({ data, refresh, notify, children }) {
   );
 }
 function Modal({ title, onClose, children }) {
+  const { t } = useLocale();
   const present = useIsPresent();
   const ref = useRef(null),
     { active, canFade } = useMotion();
@@ -184,10 +186,10 @@ function Modal({ title, onClose, children }) {
     >
       <div className="dialog-header">
         <div>
-          <span className="eyebrow">DAYLINE / ПОД ТЕБЯ</span>
+          <span className="eyebrow">{t("DAYLINE / ПОД ТЕБЯ")}</span>
           <h2>{title}</h2>
         </div>
-        <button className="icon-button" aria-label="Закрыть" onClick={onClose}>
+        <button className="icon-button" aria-label={t("Закрыть")} onClick={onClose}>
           <X size={19} />
         </button>
       </div>
@@ -275,21 +277,22 @@ function Menu({ trigger, children, label }) {
   );
 }
 function CategorySelect({ app }) {
+  const { t } = useLocale();
   const { types, run, setModal } = useContext(Context),
     parts = Object.entries(allocation(app)),
     mix = parts.length > 1,
     first = types[parts[0][0]] || categories.neutral,
-    label = mix ? "Смешанная" : first.label,
+    label = mix ? t("Смешанная") : first.label,
     hint = mix
       ? parts.map(([id, share]) => `${types[id]?.label || id} ${share}%`).join(" · ")
       : label;
   return (
     <Menu
-      label="Выбери вид"
+      label={t("Выбери вид")}
       trigger={
         <button
           className={"category-trigger " + (mix ? "is-mixed" : "")}
-          aria-label={"Категория: " + app.id}
+          aria-label={t("Категория: ") + app.id}
           aria-description={hint}
           title={hint}
         >
@@ -351,7 +354,7 @@ function CategorySelect({ app }) {
             }}
           >
             <SlidersHorizontal size={16} />
-            <span>Распределить по долям</span>
+            <span>{t("Распределить по долям")}</span>
             <span className="menu-hint">%</span>
           </button>
           <button
@@ -362,7 +365,7 @@ function CategorySelect({ app }) {
             }}
           >
             <Plus size={16} />
-            <span>Добавить / изменить виды</span>
+            <span>{t("Добавить / изменить виды")}</span>
           </button>
         </>
       )}
@@ -370,6 +373,7 @@ function CategorySelect({ app }) {
   );
 }
 function MixEditor({ app, onClose }) {
+  const { t } = useLocale();
   const { types, run } = useContext(Context),
     [values, setValues] = useState(allocation(app)),
     [saving, setSaving] = useState(false);
@@ -383,7 +387,7 @@ function MixEditor({ app, onClose }) {
         if (
           await run(
             () => api.allocation(app.id, Object.fromEntries(parts)),
-            "Распределение сохранено",
+            t("Распределение сохранено"),
           )
         )
           onClose();
@@ -392,8 +396,8 @@ function MixEditor({ app, onClose }) {
     >
       <p className="dialog-description">
         {app.name} · {/firefox/i.test(app.id)
-          ? "Доли применятся к сайтам без своей категории и времени без адреса."
-          : "Доли применятся ко всему записанному времени программы."}
+          ? t("Доли применятся к сайтам без своей категории и времени без адреса.")
+          : t("Доли применятся ко всему записанному времени программы.")}
       </p>
       <div className="mix-preview">
         {parts.map(([id, p]) => (
@@ -409,20 +413,18 @@ function MixEditor({ app, onClose }) {
         className="split-preset"
         onClick={() => setValues({ focus: 50, rest: 50 })}
       >
-        <SlidersHorizontal size={15} />
-        50% работа / 50% отдых
-        <ArrowUpRight size={14} />
+        <SlidersHorizontal size={15} />{t("50% работа / 50% отдых")}<ArrowUpRight size={14} />
       </button>
       <div className="allocation-fields">
-        {Object.entries(types).map(([id, t]) => (
+        {Object.entries(types).map(([id, type]) => (
           <label className="allocation-field" key={id}>
             <span>
               <i className="type-dot" style={{ background: typeColor(types, id) }} />
-              {t.label}
+              {type.label}
             </span>
             <span>
               <input
-                aria-label={"Доля: " + t.label}
+                aria-label={t("Доля: ") + type.label}
                 type="number"
                 min="0"
                 max="100"
@@ -440,23 +442,22 @@ function MixEditor({ app, onClose }) {
       <div
         className={"allocation-total " + (total === 100 ? "valid" : "invalid")}
       >
-        <span>Всего</span>
+        <span>{t("Всего")}</span>
         <strong>{total} / 100%</strong>
       </div>
       <div className="dialog-actions">
-        <button type="button" className="quiet-button" onClick={onClose}>
-          Отмена
-        </button>
+        <button type="button" className="quiet-button" onClick={onClose}>{t("Отмена")}</button>
         <button className="accent-button" disabled={total !== 100 || saving}>
           <Check size={16} />
-          {saving ? "Сохраняю…" : "Сохранить доли"}
+          {saving ? t("Сохраняю…") : t("Сохранить доли")}
         </button>
       </div>
     </form>
   );
 }
 function TypeManager() {
-  const { types, run } = useContext(Context),
+  const { t } = useLocale();
+  const { data, types, run } = useContext(Context),
     empty = () => ({
       id: "c-" + crypto.randomUUID(),
       label: "",
@@ -467,34 +468,31 @@ function TypeManager() {
     [saving, setSaving] = useState(false);
   return (
     <>
-      <p className="dialog-description">
-        Например, учёба, творчество или общение. Выбери, как вид влияет на фокус
-        дня.
-      </p>
+      <p className="dialog-description">{t("Например, учёба, творчество или общение. Выбери, как вид влияет на фокус дня.")}</p>
       <div className="type-catalog">
-        {Object.entries(types).map(([id, t]) => (
+        {Object.entries(types).map(([id, type]) => (
           <div key={id}>
             <i className="type-dot" style={{ background: typeColor(types, id) }} />
             <span>
-              {t.label}
-              <small>{categories[t.base || id]?.label}</small>
+              {type.label}
+              <small>{t(categories[type.base || id]?.label)}</small>
             </span>
             <button
               className="icon-button"
-              aria-label={"Изменить вид " + t.label}
-              onClick={() => setDraft({ ...t, id })}
+              aria-label={t("Изменить вид ") + type.label}
+              onClick={() => setDraft({ ...type, id })}
             >
               <Pencil size={15} />
             </button>
             {!categories[id] && (
               <button
                 className="icon-button"
-                aria-label={"Удалить вид " + t.label}
+                aria-label={t("Удалить вид ") + type.label}
                 onClick={async () => {
                   if (
                     await run(
                       () => api.removeType(id),
-                      "Вид удалён; время сохранено",
+                      t("Вид удалён; время сохранено"),
                     )
                   )
                     setDraft(empty());
@@ -511,37 +509,37 @@ function TypeManager() {
         onSubmit={async (e) => {
           e.preventDefault();
           setSaving(true);
-          if (await run(() => api.saveType(draft), "Вид сохранён"))
+          const oldLabel = data.types?.[draft.id]?.label;
+          const label = oldLabel && draft.label === types[draft.id]?.label ? oldLabel : draft.label;
+          if (await run(() => api.saveType({ ...draft, label }), t("Вид сохранён")))
             setDraft(empty());
           setSaving(false);
         }}
       >
         <div className="type-form-heading">
-          <h3>{types[draft.id] ? "Изменить вид" : "Новый вид"}</h3>
+          <h3>{types[draft.id] ? t("Изменить вид") : t("Новый вид")}</h3>
           {types[draft.id] && (
             <button
               type="button"
               className="text-button"
               onClick={() => setDraft(empty())}
-            >
-              Создать новый
-            </button>
+            >{t("Создать новый")}</button>
           )}
         </div>
         <input
           className="type-name"
-          aria-label="Название вида"
-          placeholder="Например, Учёба"
+          aria-label={t("Название вида")}
+          placeholder={t("Например, Учёба")}
           maxLength={32}
           value={draft.label}
           onChange={(e) => setDraft((d) => ({ ...d, label: e.target.value }))}
           required
         />
-        <div className="color-swatches" role="group" aria-label="Цвет вида">
+        <div className="color-swatches" role="group" aria-label={t("Цвет вида")}>
           {colors.map((c) => (
             <button
               type="button"
-              aria-label={"Цвет " + c}
+              aria-label={t("Цвет ") + c}
               aria-pressed={draft.color === c}
               style={{ background: c }}
               key={c}
@@ -551,8 +549,8 @@ function TypeManager() {
             </button>
           ))}
         </div>
-        <div className="base-choice" role="group" aria-label="Влияние на фокус">
-          {Object.entries(categories).map(([id, t]) => (
+        <div className="base-choice" role="group" aria-label={t("Влияние на фокус")}>
+          {Object.entries(categories).map(([id, type]) => (
             <button
               type="button"
               key={id}
@@ -560,8 +558,8 @@ function TypeManager() {
               aria-pressed={draft.base === id}
               onClick={() => setDraft((d) => ({ ...d, base: id }))}
             >
-              <i className="type-dot" style={{ background: t.color }} />
-              {t.label}
+              <i className="type-dot" style={{ background: type.color }} />
+              {t(type.label)}
             </button>
           ))}
         </div>
@@ -570,13 +568,14 @@ function TypeManager() {
           disabled={saving || !draft.label.trim()}
         >
           <Plus size={16} />
-          {types[draft.id] ? "Сохранить вид" : "Добавить вид"}
+          {types[draft.id] ? t("Сохранить вид") : t("Добавить вид")}
         </button>
       </form>
     </>
   );
 }
 function HiddenApps() {
+  const { t } = useLocale();
   const { data, run } = useContext(Context),
     apps = Object.entries(data.catalog).filter(([, a]) => a.hidden);
   return (
@@ -589,21 +588,20 @@ function HiddenApps() {
             <button
               className="quiet-button"
               onClick={() =>
-                run(() => api.hideApp(id, false), "Программа возвращена")
+                run(() => api.hideApp(id, false), t("Программа возвращена"))
               }
             >
-              <RotateCcw size={15} />
-              Вернуть
-            </button>
+              <RotateCcw size={15} />{t("Вернуть")}</button>
           </div>
         ))
       ) : (
-        <p className="dialog-description">Скрытых программ нет.</p>
+        <p className="dialog-description">{t("Скрытых программ нет.")}</p>
       )}
     </div>
   );
 }
 function AppIcon({ item, icons, editing }) {
+  const { t } = useLocale();
   const { run } = useContext(Context);
   const image = (
     <span className={"app-icon " + item.category}>
@@ -621,11 +619,11 @@ function AppIcon({ item, icons, editing }) {
   if (!editing) return image;
   return (
     <Menu
-      label="Иконка программы"
+      label={t("Иконка программы")}
       trigger={
         <button
           className="icon-edit"
-          aria-label={"Изменить иконку " + item.name}
+          aria-label={t("Изменить иконку ") + item.name}
         >
           {image}
           <i>
@@ -636,57 +634,54 @@ function AppIcon({ item, icons, editing }) {
     >
       {(close) => (
         <>
-          <div className="menu-label">ИКОНКА ПРОГРАММЫ</div>
+          <div className="menu-label">{t("ИКОНКА ПРОГРАММЫ")}</div>
           <button
             onClick={() => {
               close();
-              run(() => api.icon(item.id), "Иконка обновлена");
+              run(() => api.icon(item.id), t("Иконка обновлена"));
             }}
           >
-            <ImagePlus size={16} />
-            Выбрать картинку или EXE
-          </button>
+            <ImagePlus size={16} />{t("Выбрать картинку или EXE")}</button>
           <button
             onClick={() => {
               close();
               run(
                 () => api.icon(item.id, true),
-                "Исходная иконка восстановлена",
+                t("Исходная иконка восстановлена"),
               );
             }}
           >
-            <RotateCcw size={16} />
-            Восстановить из программы
-          </button>
+            <RotateCcw size={16} />{t("Восстановить из программы")}</button>
         </>
       )}
     </Menu>
   );
 }
 function SiteCategory({ domain, app }) {
+  const { t } = useLocale();
   const { data, types, run } = useContext(Context);
   const current = data.siteCategories?.[domain];
   const studyId = Object.entries(types).find(([id, type]) =>
-    !categories[id] && type.base === "focus" && /^уч[её]ба$/i.test(type.label.trim()))?.[0]
+    !categories[id] && type.base === "focus" && /^(уч[её]ба|study)$/i.test(type.label.trim()))?.[0]
     || (types["c-site-study"] ? "c-site-study" : "study");
   const options = [
-    ["focus", "Работа"],
-    [studyId, "Учёба"],
-    ["rest", "Развлечения"],
-    ["neutral", "Другое"],
+    ["focus", t("Работа")],
+    [studyId, t("Учёба")],
+    ["rest", t("Развлечения")],
+    ["neutral", t("Другое")],
     ...Object.entries(types)
       .filter(([id]) => !["focus", "rest", "neutral", studyId].includes(id))
       .map(([id, type]) => [id, type.label]),
   ];
-  const label = options.find(([id]) => id === current)?.[1] || `Как у ${app.name}`;
+  const label = options.find(([id]) => id === current)?.[1] || t("Как у {0}", app.name);
   const color = current === studyId && !types[studyId]
     ? "var(--violet)"
     : typeColor(types, current);
   return (
     <Menu
-      label={`Категория сайта ${domain}`}
+      label={t("Категория сайта {0}", domain)}
       trigger={
-        <button className="category-trigger site-category" aria-label={`Категория сайта: ${domain}`} aria-description={label} title={label}>
+        <button className="category-trigger site-category" aria-label={t("Категория сайта: {0}", domain)} aria-description={label} title={label}>
           <i className="type-dot" style={{ background: color }} />
           <span>{label}</span><ChevronDown size={13} />
         </button>
@@ -705,14 +700,15 @@ function SiteCategory({ domain, app }) {
         <div className="menu-divider" />
         <button role="menuitemradio" aria-checked={!current}
           onClick={() => { close(); run(() => api.siteCategory(domain, null)); }}>
-          <RotateCcw size={14} /><span>Как у {app.name}</span>{!current && <Check size={15} />}
+          <RotateCcw size={14} /><span>{t("Как у {0}", app.name)}</span>{!current && <Check size={15} />}
         </button>
-        <p className="site-category-hint">Применится к статистике всех дней.</p>
+        <p className="site-category-hint">{t("Применится к статистике всех дней.")}</p>
       </>}
     </Menu>
   );
 }
 function Sites({ app, id, groupRef, closing, editing }) {
+  const { t } = useLocale();
   const { data } = useContext(Context);
   const [more, setMore] = useState(false);
   const sites = app.sites || [];
@@ -745,8 +741,8 @@ function Sites({ app, id, groupRef, closing, editing }) {
         <div className="sites-empty" role="row">
           <div role="cell">
             {data.browserStatus === "disabled"
-              ? "Учёт сайтов выключен в настройках."
-              : "Сайты появятся после использования Firefox."}
+              ? t("Учёт сайтов выключен в настройках.")
+              : t("Сайты появятся после использования Firefox.")}
           </div>
         </div>
       )}
@@ -754,7 +750,7 @@ function Sites({ app, id, groupRef, closing, editing }) {
         <div className="sites-more" role="row">
           <div role="cell">
             <button className="text-button" onClick={() => setMore((x) => !x)}>
-              {more ? "Свернуть" : "Все сайты (" + sites.length + ")"}
+              {more ? t("Свернуть") : t("Все сайты (") + sites.length + ")"}
             </button>
           </div>
         </div>
@@ -865,12 +861,13 @@ export default function ProgramList({
   apps,
   icons,
   all = false,
-  title = "Программы",
+  title,
   showTitle = true,
   limit,
   onShowAll,
   headingAction,
 }) {
+  const { t, locale } = useLocale();
   const { data, types, setModal } = useContext(Context);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
@@ -878,34 +875,34 @@ export default function ProgramList({
   const [editing, setEditing] = useState(false);
   const sites = useSitesDisclosure();
   const category = types[filter] ? filter : "all";
-  const query = search.trim().toLocaleLowerCase("ru-RU");
+  const query = search.trim().toLocaleLowerCase(locale);
   const listed = apps.filter((app) => !app.hidden);
   const shortCount = listed.filter((app) => app.ms < 60000).length;
   const visible = listed.filter((app) =>
     (short || data.settings.hideShort === false || app.ms >= 60000) &&
-    app.name.toLocaleLowerCase("ru-RU").includes(query) &&
+    app.name.toLocaleLowerCase(locale).includes(query) &&
     (category === "all" || allocation(app)[category]),
-  ).sort((a, b) => b.ms - a.ms || a.name.localeCompare(b.name, "ru"));
+  ).sort((a, b) => b.ms - a.ms || a.name.localeCompare(b.name, locale));
   const shown = limit === undefined ? visible : visible.slice(0, limit);
   const hideShort = shortCount > 0 && data.settings.hideShort !== false;
   const actions = (
     <div className="program-actions">
       <button
         className="program-action"
-        aria-label="Редактировать список программ"
+        aria-label={t("Редактировать список программ")}
         aria-pressed={editing}
         onClick={() => setEditing((value) => !value)}
       >
         {editing ? <Check size={15} /> : <Pencil size={15} />}
-        <span>{editing ? "Готово" : "Редактировать список"}</span>
+        <span>{editing ? t("Готово") : t("Редактировать список")}</span>
       </button>
       <button
         className="program-action"
-        aria-label="Виды программ"
+        aria-label={t("Виды программ")}
         onClick={() => setModal({ kind: "types" })}
       >
         <Tag size={15} />
-        <span>Категории</span>
+        <span>{t("Категории")}</span>
       </button>
     </div>
   );
@@ -913,7 +910,7 @@ export default function ProgramList({
     <Panel className={"programs " + (all ? "all-programs" : "programs-compact")}>
       {(showTitle || headingAction) && (
         <div className="program-heading">
-          {showTitle && <h2>{title}</h2>}
+          {showTitle && <h2>{title ?? t("Программы")}</h2>}
           {headingAction}
         </div>
       )}
@@ -923,17 +920,17 @@ export default function ProgramList({
             <label className="search program-search">
               <Search size={16} aria-hidden="true" />
               <input
-                aria-label="Поиск программы"
-                placeholder="Найти программу"
+                aria-label={t("Поиск программы")}
+                placeholder={t("Найти программу")}
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
               />
             </label>
             <ChoiceSelect
-              label="Категории программ"
+              label={t("Категории программ")}
               value={category}
               options={[
-                { value: "all", label: "Все категории" },
+                { value: "all", label: t("Все категории") },
                 ...Object.entries(types).map(([value, type]) => ({ value, label: type.label })),
               ]}
               onChange={setFilter}
@@ -945,15 +942,15 @@ export default function ProgramList({
       {editing && (
         <div className="edit-hint">
           <ImagePlus size={15} aria-hidden="true" />
-          <span>Нажми на иконку, чтобы заменить её. Корзина уберёт программу из списка.</span>
+          <span>{t("Нажми на иконку, чтобы заменить её. Корзина уберёт программу из списка.")}</span>
         </div>
       )}
       {shown.length > 0 ? (
         <div className="program-table" role="table" aria-label={title}>
           <div className="program-columns program-table-head" role="row">
-            <span role="columnheader">Программа</span>
-            <span role="columnheader">Категория</span>
-            <span className={"program-time" + (editing ? " time-with-action" : "")} role="columnheader">Время</span>
+            <span role="columnheader">{t("Программа")}</span>
+            <span role="columnheader">{t("Категория")}</span>
+            <span className={"program-time" + (editing ? " time-with-action" : "")} role="columnheader">{t("Время")}</span>
           </div>
           <div className="program-rows" role="rowgroup">
             {shown.map((app) => {
@@ -973,7 +970,7 @@ export default function ProgramList({
                       {firefox ? (
                         <button
                           className="browser-expand"
-                          aria-label="Сайты Firefox"
+                          aria-label={t("Сайты Firefox")}
                           aria-expanded={open}
                           aria-controls={renderSites ? sites.id : undefined}
                           onClick={sites.toggle}
@@ -994,7 +991,7 @@ export default function ProgramList({
                       {editing && (
                         <button
                           className="remove-program icon-button"
-                          aria-label={"Убрать " + app.name + " из списка"}
+                          aria-label={t("Убрать ") + app.name + t(" из списка")}
                           onClick={() => setModal({ kind: "hide", app })}
                         >
                           <Trash2 size={15} />
@@ -1021,30 +1018,29 @@ export default function ProgramList({
           <Monitor size={24} aria-hidden="true" />
           <h3>
             {query || category !== "all"
-              ? "Ничего не найдено"
-              : "Пока нет программ дольше минуты"}
+              ? t("Ничего не найдено")
+              : t("Пока нет программ дольше минуты")}
           </h3>
           <p>
             {query || category !== "all"
-              ? "Попробуй другую категорию или название."
-              : "Они появятся автоматически по мере использования."}
+              ? t("Попробуй другую категорию или название.")
+              : t("Они появятся автоматически по мере использования.")}
           </p>
         </div>
       )}
       <div className="program-list-footer">
         {onShowAll && (
-          <button className="program-show-all" onClick={onShowAll}>
-            Все программы <ArrowRight size={15} aria-hidden="true" />
+          <button className="program-show-all" onClick={onShowAll}>{t("Все программы")}<ArrowRight size={15} aria-hidden="true" />
           </button>
         )}
         {all && (
           <div className="program-list-options">
             {hideShort && (
               <button className="program-option" onClick={() => setShort((x) => !x)} aria-pressed={short}>
-                {short ? "Скрыть короткие" : "Меньше минуты · " + shortCount}
+                {short ? t("Скрыть короткие") : t("Меньше минуты · ") + shortCount}
               </button>
             )}
-            <button className="program-option" onClick={() => setModal({ kind: "hidden" })}>Скрытые</button>
+            <button className="program-option" onClick={() => setModal({ kind: "hidden" })}>{t("Скрытые")}</button>
           </div>
         )}
       </div>

@@ -1,3 +1,4 @@
+import { useLocale } from "./i18n.jsx";
 import { useId, useLayoutEffect, useRef, useState } from "react";
 import * as Popover from "@radix-ui/react-popover";
 import {
@@ -21,29 +22,19 @@ const WEEKDAYS = [
   ["Вс", "Воскресенье"],
 ];
 const MIN_DATE = "0001-01-01";
-const dateFormat = new Intl.DateTimeFormat("ru-RU", {
-  day: "numeric",
-  month: "long",
-  year: "numeric",
-});
-const monthFormat = new Intl.DateTimeFormat("ru-RU", {
-  month: "long",
-  year: "numeric",
-});
-const rangeFormat = new Intl.DateTimeFormat("ru-RU", {
-  day: "numeric",
-  month: "long",
-});
-const shortDateFormat = new Intl.DateTimeFormat("ru-RU", {
-  day: "numeric",
-  month: "short",
-});
-const fullDateFormat = new Intl.DateTimeFormat("ru-RU", {
-  weekday: "long",
-  day: "numeric",
-  month: "long",
-  year: "numeric",
-});
+const formats = {
+  dateFormat: { day: "numeric", month: "long", year: "numeric" },
+  monthFormat: { month: "long", year: "numeric" },
+  rangeFormat: { day: "numeric", month: "long" },
+  shortDateFormat: { day: "numeric", month: "short" },
+  fullDateFormat: { weekday: "long", day: "numeric", month: "long", year: "numeric" },
+};
+const calendarFormats = Object.fromEntries(["ru-RU", "en-US"].map((locale) => [
+  locale,
+  Object.fromEntries(Object.entries(formats).map(([name, options]) => [
+    name, new Intl.DateTimeFormat(locale, options),
+  ])),
+]));
 
 // Noon keeps calendar arithmetic in the local day, including across DST changes.
 function dateKey(date) {
@@ -108,6 +99,8 @@ export default function DatePicker({
   rangeStart,
   monthNavigation = false,
 }) {
+  const { t, locale } = useLocale();
+  const { dateFormat, monthFormat, rangeFormat, shortDateFormat, fullDateFormat } = calendarFormats[locale];
   const today = dateKey(new Date());
   const limit = parseDate(max) ? (max < today ? max : today) : today;
   const selected = clampDate(parseDate(value) || parseDate(today), limit);
@@ -120,10 +113,10 @@ export default function DatePicker({
       .formatRange(rangeDate, selected)
     : (monthNavigation ? monthFormat : dateFormat).format(selected).replace(/ г\.$/, "");
   const stepLabels = monthNavigation
-    ? ["Предыдущий месяц", "Следующий месяц"]
+    ? [t("Предыдущий месяц"), t("Следующий месяц")]
     : stepDays === 7
-      ? ["Предыдущая неделя", "Следующая неделя"]
-      : ["Предыдущий день", "Следующий день"];
+      ? [t("Предыдущая неделя"), t("Следующая неделя")]
+      : [t("Предыдущий день"), t("Следующий день")];
   const step = (direction) => {
     const next = monthNavigation
       ? addMonths(navigationDate, direction)
@@ -211,11 +204,10 @@ export default function DatePicker({
     <div className="day-date-controls">
       {navigationKey !== today && today <= limit && (
         <button type="button" className="day-date-return quiet-button control-press"
-          aria-label="Вернуться к сегодняшнему дню"
+          aria-label={t("Вернуться к сегодняшнему дню")}
           data-motion={motionMode(motion, false)}
           onClick={() => choose(parseDate(today))}>
-          <RotateCcw size={14} aria-hidden="true" /> Сегодня
-        </button>
+          <RotateCcw size={14} aria-hidden="true" />{" "}{t("Сегодня")}</button>
       )}
     <div className="day-date-picker" data-motion={motionMode(motion, false)}>
       <button
@@ -233,7 +225,7 @@ export default function DatePicker({
           <button
             type="button"
             className="day-date-trigger control-press"
-            aria-label="Выбрать дату"
+            aria-label={t("Выбрать дату")}
             aria-describedby={`${id}-value`}
             onPointerDown={() => {
               keyboardOpen.current = false;
@@ -264,7 +256,7 @@ export default function DatePicker({
             align="end"
             sideOffset={10}
             collisionPadding={14}
-            aria-label="Календарь"
+            aria-label={t("Календарь")}
             aria-describedby={`${id}-help`}
             onOpenAutoFocus={(event) => {
               event.preventDefault();
@@ -279,7 +271,7 @@ export default function DatePicker({
                 <button
                   type="button"
                   className="day-calendar-month-step control-press"
-                  aria-label="Предыдущий месяц"
+                  aria-label={t("Предыдущий месяц")}
                   disabled={dateKey(month) === MIN_DATE}
                   onClick={() => changeMonth(-1)}
                 >
@@ -288,7 +280,7 @@ export default function DatePicker({
                 <button
                   type="button"
                   className="day-calendar-month-step control-press"
-                  aria-label="Следующий месяц"
+                  aria-label={t("Следующий месяц")}
                   disabled={dateKey(addMonths(month, 1)) > limit}
                   onClick={() => changeMonth(1)}
                 >
@@ -304,8 +296,8 @@ export default function DatePicker({
               <thead>
                 <tr>
                   {WEEKDAYS.map(([short, full]) => (
-                    <th key={short} scope="col" abbr={full}>
-                      {short}
+                    <th key={short} scope="col" abbr={t(full)}>
+                      {t(short)}
                     </th>
                   ))}
                 </tr>
@@ -353,15 +345,10 @@ export default function DatePicker({
                 disabled={today > limit}
                 onClick={() => choose(parseDate(today))}
               >
-                <span className="day-calendar-today-dot" aria-hidden="true" />
-                Сегодня
-                <span>{shortDateFormat.format(parseDate(today))}</span>
+                <span className="day-calendar-today-dot" aria-hidden="true" />{t("Сегодня")}<span>{shortDateFormat.format(parseDate(today))}</span>
               </button>
             </div>
-            <span className="control-sr-only" id={`${id}-help`}>
-              Стрелки — перейти к дню. Page Up и Page Down — сменить месяц. Home
-              и End — начало и конец недели. Enter — выбрать. Escape — закрыть.
-            </span>
+            <span className="control-sr-only" id={`${id}-help`}>{t("Стрелки — перейти к дню. Page Up и Page Down — сменить месяц. Home и End — начало и конец недели. Enter — выбрать. Escape — закрыть.")}</span>
           </Popover.Content>
         </Popover.Portal>
       </Popover.Root>
@@ -380,7 +367,8 @@ export default function DatePicker({
   );
 }
 
-export function ChoiceSelect({ label, value, options, onChange }) {
+export function ChoiceSelect({ label, value, options, onChange, disabled = false }) {
+  const { t, locale } = useLocale();
   const selectedIndex = options.findIndex((option) => option.value === value);
   const initialIndex = Math.max(0, selectedIndex);
   const [open, setOpen] = useState(false);
@@ -430,7 +418,7 @@ export function ChoiceSelect({ label, value, options, onChange }) {
         const now = Date.now();
         const text =
           (now - search.current.time < 600 ? search.current.text : "") +
-          event.key.toLocaleLowerCase("ru-RU");
+          event.key.toLocaleLowerCase(locale);
         search.current = { text, time: now };
         const query = [...text].every((letter) => letter === text[0])
           ? text[0]
@@ -438,7 +426,7 @@ export function ChoiceSelect({ label, value, options, onChange }) {
         index = options.findIndex((_, offset) => {
           const next = (focused + 1 + offset) % options.length;
           return options[next].label
-            .toLocaleLowerCase("ru-RU")
+            .toLocaleLowerCase(locale)
             .startsWith(query);
         });
         if (index === -1) return;
@@ -459,7 +447,7 @@ export function ChoiceSelect({ label, value, options, onChange }) {
           aria-label={label}
           aria-describedby={`${id}-value`}
           aria-haspopup="listbox"
-          disabled={!options.length}
+          disabled={disabled || !options.length}
           onPointerDown={() => {
             keyboardOpen.current = false;
           }}
@@ -472,7 +460,7 @@ export function ChoiceSelect({ label, value, options, onChange }) {
           }}
         >
           <span id={`${id}-value`}>
-            {options[selectedIndex]?.label || "Выбрать"}
+            {options[selectedIndex]?.label || t("Выбрать")}
           </span>
           <ChevronDown size={14} aria-hidden="true" />
         </button>

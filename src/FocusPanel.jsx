@@ -1,3 +1,4 @@
+import { useLocale } from "./i18n.jsx";
 import { useEffect, useId, useRef, useState } from "react";
 import {
   Coffee,
@@ -17,38 +18,39 @@ function clockText(remainingMs) {
     .padStart(2, "0")}:${(seconds % 60).toString().padStart(2, "0")}`;
 }
 
-function phaseState(timer) {
-  if (!timer) return { label: "Подключение", hint: "Загружаем таймер…" };
+function phaseState(timer, t) {
+  if (!timer) return { label: t("Подключение"), hint: t("Загружаем таймер…") };
   if (timer.status === "paused")
     return {
-      label: "На паузе",
-      hint: "Время остановлено. Продолжи, когда будешь готов.",
+      label: t("На паузе"),
+      hint: t("Время остановлено. Продолжи, когда будешь готов."),
     };
   if (timer.status === "break-ready")
     return {
-      label: "Время отдохнуть",
-      hint: "Работа завершена. Перерыв начнётся по нажатию.",
+      label: t("Время отдохнуть"),
+      hint: t("Работа завершена. Перерыв начнётся по нажатию."),
     };
   if (timer.status === "work-ready")
     return {
-      label: "Готов к фокусу",
-      hint: "Следующая сессия начнётся, когда ты будешь готов.",
+      label: t("Готов к фокусу"),
+      hint: t("Следующая сессия начнётся, когда ты будешь готов."),
     };
   if (timer.status === "running")
     return {
-      label: timer.phase === "break" ? "Перерыв" : "В фокусе",
+      label: timer.phase === "break" ? t("Перерыв") : t("В фокусе"),
       hint:
         timer.phase === "break"
-          ? "Отойди от экрана и немного разомнись."
-          : "Одна задача. Таймер продолжит работать в трее.",
+          ? t("Отойди от экрана и немного разомнись.")
+          : t("Одна задача. Таймер продолжит работать в трее."),
     };
   return {
-    label: "Готов к запуску",
+    label: t("Готов к запуску"),
     hint: "",
   };
 }
 
 export default function FocusPanel({ api = window.dayline, notify }) {
+  const { t, errorText } = useLocale();
   const [timer, setTimer] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -68,7 +70,7 @@ export default function FocusPanel({ api = window.dayline, notify }) {
     const refresh = async () => {
       if (!alive || !visible() || pending || commandPending.current) return;
       if (!api?.focusSnapshot) {
-        setError("Таймер доступен в приложении Dayline.");
+        setError(t("Таймер доступен в приложении Dayline."));
         return;
       }
       const version = generation.current;
@@ -81,7 +83,7 @@ export default function FocusPanel({ api = window.dayline, notify }) {
         }
       } catch {
         if (alive && version === generation.current)
-          setError("Не удалось получить состояние таймера.");
+          setError(t("Не удалось получить состояние таймера."));
       } finally {
         pending = false;
       }
@@ -116,7 +118,7 @@ export default function FocusPanel({ api = window.dayline, notify }) {
       unsubscribe?.();
       document.removeEventListener("visibilitychange", syncPolling);
     };
-  }, [api]);
+  }, [api, t]);
 
   const act = async (action) => {
     if (commandPending.current) return;
@@ -131,7 +133,7 @@ export default function FocusPanel({ api = window.dayline, notify }) {
       }
     } catch (cause) {
       if (mounted.current) {
-        const message = cause?.message || "Не удалось изменить таймер.";
+        const message = errorText(cause, "Не удалось изменить таймер.");
         setError(message);
         notify?.(message);
       }
@@ -141,7 +143,7 @@ export default function FocusPanel({ api = window.dayline, notify }) {
     }
   };
 
-  const state = phaseState(timer);
+  const state = phaseState(timer, t);
   const status = timer?.status || "loading";
   const isBreak = timer?.phase === "break";
   const running = status === "running";
@@ -154,12 +156,12 @@ export default function FocusPanel({ api = window.dayline, notify }) {
         ? "startBreak"
         : "start";
   const primaryLabel = running
-    ? "Пауза"
+    ? t("Пауза")
     : paused
-      ? "Продолжить"
+      ? t("Продолжить")
       : status === "break-ready"
-        ? "Начать перерыв"
-        : "Начать фокус";
+        ? t("Начать перерыв")
+        : t("Начать фокус");
   const PrimaryIcon = running
     ? Pause
     : status === "break-ready"
@@ -178,12 +180,10 @@ export default function FocusPanel({ api = window.dayline, notify }) {
       aria-labelledby={titleId}
     >
       <div className="focus-heading">
-        <h2 id={titleId}>
-          Таймер фокуса
-        </h2>
+        <h2 id={titleId}>{t("Таймер фокуса")}</h2>
         <span className="focus-status" role="status" title={state.hint || undefined}>
           {status === "idle" && timer
-            ? `${timer.workMinutes} мин работы · ${timer.breakMinutes} мин отдыха`
+            ? t("{0} мин работы · {1} мин отдыха", timer.workMinutes, timer.breakMinutes)
             : state.label}
         </span>
       </div>
@@ -195,8 +195,8 @@ export default function FocusPanel({ api = window.dayline, notify }) {
             aria-live="off"
             aria-label={
               timer
-                ? `Осталось ${clockText(timer.remainingMs)}`
-                : "Таймер загружается"
+                ? t("Осталось {0}", clockText(timer.remainingMs))
+                : t("Таймер загружается")
             }
           >
             {timer ? clockText(timer.remainingMs) : "—:—"}
@@ -227,7 +227,7 @@ export default function FocusPanel({ api = window.dayline, notify }) {
                 ) : (
                   <RotateCcw size={14} />
                 )}
-                {status === "break-ready" ? "Пропустить" : "Сбросить"}
+                {status === "break-ready" ? t("Пропустить") : t("Сбросить")}
               </button>
             )}
           </div>
@@ -248,6 +248,7 @@ export default function FocusPanel({ api = window.dayline, notify }) {
 }
 
 export function FocusPreferences({ settings, onChange }) {
+  const { t } = useLocale();
   const workMinutes = settings.focusWorkMinutes ?? 25;
   const breakMinutes = settings.focusBreakMinutes ?? 5;
   const [work, setWork] = useState(String(workMinutes));
@@ -273,21 +274,18 @@ export function FocusPreferences({ settings, onChange }) {
         focusBreakMinutes: Number(rest),
       });
     } catch {
-      setError("Не удалось сохранить длительности. Попробуй ещё раз.");
+      setError(t("Не удалось сохранить длительности. Попробуй ещё раз."));
     } finally {
       setBusy(false);
     }
   };
   return (
     <form className="focus-preferences" onSubmit={save} aria-busy={busy}>
-      <h3>Таймер работы и перерыва</h3>
-      <p id={descriptionId}>
-        Изменения применятся со следующего этапа. Работа и перерыв запускаются
-        вручную.
-      </p>
+      <h3>{t("Таймер работы и перерыва")}</h3>
+      <p id={descriptionId}>{t("Изменения применятся со следующего этапа. Работа и перерыв запускаются вручную.")}</p>
       <div className="focus-duration-fields">
         <label>
-          <span>Работа</span>
+          <span>{t("Работа")}</span>
           <span className="focus-minute-input">
             <input
               type="number"
@@ -299,12 +297,12 @@ export function FocusPreferences({ settings, onChange }) {
               onChange={(event) => setWork(event.target.value)}
               aria-describedby={descriptionId}
             />
-            <span>мин</span>
+            <span>{t("мин")}</span>
           </span>
-          <small>От 1 до 180 минут</small>
+          <small>{t("От 1 до 180 минут")}</small>
         </label>
         <label>
-          <span>Перерыв</span>
+          <span>{t("Перерыв")}</span>
           <span className="focus-minute-input">
             <input
               type="number"
@@ -316,9 +314,9 @@ export function FocusPreferences({ settings, onChange }) {
               onChange={(event) => setRest(event.target.value)}
               aria-describedby={descriptionId}
             />
-            <span>мин</span>
+            <span>{t("мин")}</span>
           </span>
-          <small>От 1 до 60 минут</small>
+          <small>{t("От 1 до 60 минут")}</small>
         </label>
       </div>
       <button
@@ -326,7 +324,7 @@ export function FocusPreferences({ settings, onChange }) {
         className="focus-button focus-secondary focus-save"
         disabled={busy || !dirty}
       >
-        {busy ? "Сохраняем…" : "Сохранить длительности"}
+        {busy ? t("Сохраняем…") : t("Сохранить длительности")}
       </button>
       {error && (
         <p className="focus-error" role="alert">

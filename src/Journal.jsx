@@ -1,8 +1,8 @@
+import { useLocale } from "./i18n.jsx";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Angry, Check, Frown, Laugh, Meh, Smile, X } from "lucide-react";
 import DatePicker from "./DatePicker.jsx";
 import { motion, useMotion } from "./motion.jsx";
-import { pretty } from "./shared.js";
 import "./journal.css";
 
 export const moods = [
@@ -57,15 +57,16 @@ function saveDraft(date, onSave) {
 }
 
 export function MoodPicker({ value, onChange }) {
+  const { t } = useLocale();
   return (
-    <div className="mood-picker" role="group" aria-label="Настроение дня">
+    <div className="mood-picker" role="group" aria-label={t("Настроение дня")}>
       {moods.map(({ Icon, label }, index) => (
         <button
           type="button"
           key={label}
-          aria-label={label}
+          aria-label={t(label)}
           aria-pressed={value === index + 1}
-          title={label}
+          title={t(label)}
           onClick={() => onChange(value === index + 1 ? null : index + 1)}
         >
           <Icon strokeWidth={1.65} aria-hidden="true" />
@@ -84,6 +85,7 @@ export function JournalEditor({
   onExpandedChange,
   id,
 }) {
+  const { t, pretty } = useLocale();
   const { active, canFade } = useMotion();
   const currentDraft = useSyncExternalStore(subscribe, () => drafts.get(date));
   const [expanded, setExpanded] = useState(!compact);
@@ -128,7 +130,7 @@ export function JournalEditor({
   const saving = currentDraft?.status === "saving";
   const saved = currentDraft?.status === "saved"
     || (!currentDraft && Boolean(entry.updatedAt || entry.done || entry.note || entry.mood));
-  const error = currentDraft?.status === "error" ? "Не удалось сохранить. Попробуй ещё раз." : "";
+  const error = currentDraft?.status === "error" ? t("Не удалось сохранить. Попробуй ещё раз.") : "";
   const update = (key, value) => {
     const latest = drafts.get(date)?.entry ?? entry;
     setDraft(date, { entry: { ...latest, [key]: value }, status: "dirty" });
@@ -143,12 +145,12 @@ export function JournalEditor({
       transition={{ duration: active ? 0.14 : canFade ? 0.12 : 0 }}
     >
       <div className="journal-editor-title">
-        <h2>{compact ? "Запись дня" : pretty(date)}</h2>
+        <h2>{compact ? t("Запись дня") : pretty(date)}</h2>
         {compact && (
           <button
             type="button"
             className="icon-button editor-expand"
-            aria-label="Свернуть заметку"
+            aria-label={t("Свернуть заметку")}
             onClick={() => {
               setExpanded(false);
               opener.current?.focus();
@@ -158,11 +160,11 @@ export function JournalEditor({
           </button>
         )}
       </div>
-      <h3 className="journal-mood-title">Настроение</h3>
+      <h3 className="journal-mood-title">{t("Настроение")}</h3>
       <MoodPicker value={draft.mood} onChange={(value) => update("mood", value)} />
       <div className="editor-fields">
         <label className="field">
-          <span>Что получилось сделать</span>
+          <span>{t("Что получилось сделать")}</span>
           <textarea
             ref={firstField}
             rows={compact ? 2 : 3}
@@ -172,7 +174,7 @@ export function JournalEditor({
           />
         </label>
         <label className="field">
-          <span>Мысли и заметки</span>
+          <span>{t("Мысли и заметки")}</span>
           <textarea
             rows={compact ? 2 : 6}
             maxLength={20000}
@@ -184,10 +186,10 @@ export function JournalEditor({
       <div className="editor-footer">
         <span className={error ? "error-text" : "journal-save-status"} aria-live="polite">
           {saved && <Check size={16} aria-hidden="true" />}
-          {error || (saving ? "Сохраняю…" : saved ? "Запись сохранена" : dirty ? "Есть изменения" : "")}
+          {error || (saving ? t("Сохраняю…") : saved ? t("Запись сохранена") : dirty ? t("Есть изменения") : "")}
         </span>
         <button type="button" className="button primary" onClick={flush} disabled={!dirty}>
-          {saving ? "Сохраняю…" : saved ? "Сохранено" : "Сохранить"}
+          {saving ? t("Сохраняю…") : saved ? t("Сохранено") : t("Сохранить")}
         </button>
       </div>
     </motion.section>
@@ -195,6 +197,7 @@ export function JournalEditor({
 }
 
 export default function Journal({ data, onDate, onSave, navigationDate = data.date }) {
+  const { t, pretty } = useLocale();
   const { date, entries, today } = data;
   const history = useMemo(() => {
     const month = date.slice(0, 7);
@@ -211,7 +214,7 @@ export default function Journal({ data, onDate, onSave, navigationDate = data.da
 
   return (
     <div className="journal-layout">
-      <section className="journal-history" aria-label="Даты дневника">
+      <section className="journal-history" aria-label={t("Даты дневника")}>
         <DatePicker monthNavigation value={date} navigationValue={navigationDate} onChange={onDate} max={today} />
         <div className="history-scroll">
           {history.map((day) => {
@@ -227,7 +230,7 @@ export default function Journal({ data, onDate, onSave, navigationDate = data.da
                 onClick={() => onDate(day)}
               >
                 <span>{pretty(day)}</span>
-                {Icon && <Icon size={20} strokeWidth={1.7} role="img" aria-label={mood.label} />}
+                {Icon && <Icon size={20} strokeWidth={1.7} role="img" aria-label={t(mood.label)} />}
               </button>
             );
           })}

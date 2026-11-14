@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld("dayline", {
   focusAction: (action, options) =>
     ipcRenderer.invoke("dayline:focus-action", action, options),
   theme: (id) => ipcRenderer.invoke("dayline:theme", id),
+  locale: (language) => ipcRenderer.invoke("dayline:locale", language),
   windowVisible: () => ipcRenderer.invoke("dayline:window-visible"),
   onWindowVisibility: (callback) => {
     const listener = (_event, visible) => callback(visible);

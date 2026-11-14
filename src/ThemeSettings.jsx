@@ -1,3 +1,4 @@
+import { useLocale } from "./i18n.jsx";
 import {
   createContext,
   useContext,
@@ -18,7 +19,10 @@ export const themes = [
 
 const ThemeContext = createContext(null);
 const isTheme = (value) => themes.some(({ id }) => id === value);
-const themeOptions = themes.map(({ id, label }) => ({ value: id, label }));
+const languageOptions = [
+  { value: "ru", label: "Русский" },
+  { value: "en", label: "English" },
+];
 
 function savedTheme() {
   try {
@@ -66,14 +70,30 @@ export function useTheme() {
   return context;
 }
 
-export default function ThemeSettings() {
+export default function ThemeSettings({ notify }) {
+  const { t, language, changing, selectLanguage } = useLocale();
   const { theme, setTheme } = useTheme();
   return (
     <section className="settings-group theme-settings" aria-labelledby="theme-settings-heading">
-      <h2 id="theme-settings-heading">Внешний вид</h2>
+      <h2 id="theme-settings-heading">{t("Внешний вид")}</h2>
       <div className="setting-row">
-        <strong>Тема</strong>
-        <ChoiceSelect label="Тема" value={theme} options={themeOptions} onChange={setTheme} />
+        <strong>{t("Тема")}</strong>
+        <ChoiceSelect
+          label={t("Тема")}
+          value={theme}
+          options={themes.map(({ id, label }) => ({ value: id, label: t(label) }))}
+          onChange={setTheme}
+        />
+      </div>
+      <div className="setting-row">
+        <strong>{t("Язык")}</strong>
+        <ChoiceSelect
+          label={t("Язык")}
+          value={language}
+          options={languageOptions}
+          disabled={changing}
+          onChange={(next) => selectLanguage(next).catch(() => notify(t("Не удалось сменить язык.")))}
+        />
       </div>
     </section>
   );

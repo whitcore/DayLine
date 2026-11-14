@@ -1,3 +1,4 @@
+import { useLocale } from "./i18n.jsx";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import {
   CalendarDays,
@@ -24,7 +25,7 @@ import {
   useMotion,
 } from "./motion.jsx";
 import Journal, { JournalEditor } from "./Journal.jsx";
-import { categories, dateKey, pretty, shift, time } from "./shared.js";
+import { categories, dateKey, shift } from "./shared.js";
 import ProgramList, { ProgramsUIProvider } from "./ProgramsUI.jsx";
 import Settings from "./Settings.jsx";
 import DatePicker from "./DatePicker.jsx";
@@ -46,18 +47,20 @@ function Brand() {
   );
 }
 function Legend() {
+  const { t } = useLocale();
   return (
     <div className="legend">
       {Object.entries(categories).map(([key, c]) => (
         <span key={key}>
           <i style={{ background: c.color }} />
-          {c.label}
+          {t(c.label)}
         </span>
       ))}
     </div>
   );
 }
 function Timeline({ data }) {
+  const { t, time } = useLocale();
   const groups = [],
     midnight = new Date(data.date + "T00:00:00").getTime(),
     dayLength =
@@ -82,9 +85,7 @@ function Timeline({ data }) {
     <Panel className="timeline-panel">
       <div className="section-heading">
         <div>
-          <h2>
-            Лента дня
-          </h2>
+          <h2>{t("Лента дня")}</h2>
         </div>
         <Legend />
       </div>
@@ -139,7 +140,7 @@ function Timeline({ data }) {
             }}
           >
             <i />
-            <span>сейчас</span>
+            <span>{t("сейчас")}</span>
           </div>
         )}
       </div>
@@ -149,33 +150,33 @@ function Timeline({ data }) {
         ))}
       </div>
       {!data.sessions.length && (
-        <p className="timeline-empty">
-          За этот день нет записей активности.
-        </p>
+        <p className="timeline-empty">{t("За этот день нет записей активности.")}</p>
       )}
     </Panel>
   );
 }
 function Score({ data }) {
+  const { t } = useLocale();
   const score = data.score;
   return (
     <Panel className="score-panel">
-      <h2>Фокус дня</h2>
+      <h2>{t("Фокус дня")}</h2>
       <div className="score-content">
         <strong>{score === null ? "—" : score}</strong>
         {score !== null && <span> / 100</span>}
       </div>
       <p className="score-caption">
         {score === null
-          ? "Недостаточно данных"
+          ? t("Недостаточно данных")
           : data.scoreMode === "goal"
-            ? "Доля дневной цели"
-            : "Доля полезного времени"}
+            ? t("Доля дневной цели")
+            : t("Доля полезного времени")}
       </p>
     </Panel>
   );
 }
 function TodayPrograms({ data, onCategory, onSave, onShowAll }) {
+  const { t } = useLocale();
   const [openRequest, setOpenRequest] = useState(0);
   const [expanded, setExpanded] = useState(false);
   const editorId = useId();
@@ -196,9 +197,7 @@ function TodayPrograms({ data, onCategory, onSave, onShowAll }) {
             aria-controls={expanded ? editorId : undefined}
             onClick={() => setOpenRequest((n) => n + 1)}
           >
-            <NotebookPen size={15} aria-hidden="true" />
-            Запись дня
-          </button>
+            <NotebookPen size={15} aria-hidden="true" />{t("Запись дня")}</button>
         }
       />
       <JournalEditor
@@ -215,6 +214,7 @@ function TodayPrograms({ data, onCategory, onSave, onShowAll }) {
   );
 }
 function Today({ data, onCategory, onSave, onShowAll }) {
+  const { t, time } = useLocale();
   const total = Math.floor(data.totalMs / 60000);
   const parts = Object.entries(categories).map(([key, category]) => ({
     ...category,
@@ -226,20 +226,20 @@ function Today({ data, onCategory, onSave, onShowAll }) {
       <div className="overview-grid">
         <Panel className="hero-panel">
           <div className="hero-top">
-            <h2>Экранное время</h2>
+            <h2>{t("Экранное время")}</h2>
           </div>
           <div
             className="big-time"
-            aria-label={`Экранное время: ${time(data.totalMs)}`}
+            aria-label={t("Экранное время: {0}", time(data.totalMs))}
           >
             <strong>
               <AnimatedNumber value={Math.floor(total / 60)} />
             </strong>
-            <span>ч</span>
+            <span>{t("ч")}</span>
             <strong>
               <AnimatedNumber value={total % 60} pad={2} />
             </strong>
-            <span>мин</span>
+            <span>{t("мин")}</span>
           </div>
           <div className="distribution-bar" aria-hidden="true">
             {parts.filter(({ ms }) => ms > 0).map(({ key, color, ms }) => (
@@ -249,7 +249,7 @@ function Today({ data, onCategory, onSave, onShowAll }) {
           <div className="time-distribution">
             {parts.map(({ key, color, label, ms }) => (
               <div key={key}>
-                <span><i style={{ background: color }} />{label}</span>
+                <span><i style={{ background: color }} />{t(label)}</span>
                 <strong><Duration ms={ms} /></strong>
               </div>
             ))}
@@ -264,21 +264,22 @@ function Today({ data, onCategory, onSave, onShowAll }) {
   );
 }
 function Statistics({ data, onDate, onCategory }) {
+  const { t } = useLocale();
   const sum = (key) => data.week.reduce((n, d) => n + d[key], 0);
   return (
     <>
       <div className="stat-tiles">
         {[
           {
-            label: "Активное время",
+            label: t("Активное время"),
             ms: sum("totalMs"),
           },
           {
-            label: "Рабочее время",
+            label: t("Рабочее время"),
             ms: sum("focusMs"),
           },
           {
-            label: "Фокус за неделю",
+            label: t("Фокус за неделю"),
             value: sum("totalMs")
               ? Math.round((100 * sum("focusMs")) / sum("totalMs"))
               : null,
@@ -305,12 +306,13 @@ function Statistics({ data, onDate, onCategory }) {
         onCategory={onCategory}
         totalMs={sum("totalMs")}
         all
-        title="Программы за неделю"
+        title={t("Программы за неделю")}
       />
     </>
   );
 }
 function Programs({ data, onCategory }) {
+  const { t, locale } = useLocale();
   const used = new Map(data.apps.map((app) => [app.id, app]));
   const apps = Object.entries(data.catalog)
     .map(([id, a]) => ({
@@ -319,7 +321,7 @@ function Programs({ data, onCategory }) {
       ms: used.get(id)?.ms || 0,
       sites: used.get(id)?.sites || [],
     }))
-    .sort((a, b) => b.ms - a.ms || a.name.localeCompare(b.name, "ru"));
+    .sort((a, b) => b.ms - a.ms || a.name.localeCompare(b.name, locale));
   return (
     <ProgramList
       apps={apps}
@@ -327,7 +329,7 @@ function Programs({ data, onCategory }) {
       onCategory={onCategory}
       totalMs={data.totalMs}
       all
-      title="Все программы"
+      title={t("Все программы")}
       showTitle={false}
     />
   );
@@ -340,6 +342,7 @@ const nav = [
   ["settings", "Настройки", Settings2],
 ];
 export default function App() {
+  const { t, pretty } = useLocale();
   const { active, visible } = useMotion();
   const [date, setDate] = useState(dateKey(new Date())),
     [page, setPage] = useState("today"),
@@ -382,7 +385,7 @@ export default function App() {
       }
     } catch {
       if (id === requestId.current && requested === dateRef.current)
-        setError("Не удалось прочитать данные. Перезапусти Dayline.");
+        setError(t("Не удалось прочитать данные. Перезапусти Dayline."));
     }
   };
   useEffect(() => {
@@ -414,7 +417,7 @@ export default function App() {
       await api.category(id, value);
       await refresh();
     } catch {
-      setToast("Не удалось изменить категорию");
+      setToast(t("Не удалось изменить категорию"));
     }
   };
   const save = async (day, entry) => {
@@ -430,8 +433,8 @@ export default function App() {
     return (
       <div className="launch-message">
         <Brand />
-        <h1>Твой день живёт в Windows</h1>
-        <p>Запусти Dayline через ярлык или установщик.</p>
+        <h1>{t("Твой день живёт в Windows")}</h1>
+        <p>{t("Запусти Dayline через ярлык или установщик.")}</p>
       </div>
     );
   if (!data)
@@ -443,16 +446,16 @@ export default function App() {
           <i />
           <i />
         </div>
-        <p>{error || "Открываю твой день…"}</p>
+        <p>{error || t("Открываю твой день…")}</p>
       </div>
     );
   const selected = nav.find((n) => n[0] === page),
     title =
       page === "today"
         ? data.date === data.today
-          ? "Сегодня"
+          ? t("Сегодня")
           : pretty(data.date)
-        : selected[1];
+        : t(selected[1]);
   const content =
     page === "today" ? (
       <Today data={data} onCategory={category} onSave={save} onShowAll={() => go("programs")} />
@@ -484,12 +487,12 @@ export default function App() {
           <Brand />
           <button
             className="sidebar-collapse icon-button"
-            aria-label={collapsed ? "Развернуть меню" : "Свернуть меню"}
+            aria-label={collapsed ? t("Развернуть меню") : t("Свернуть меню")}
             onClick={() => {
               captureSidebar();
               setCollapsed((p) => !p);
             }}
-            title={collapsed ? "Развернуть меню" : "Свернуть меню"}
+            title={collapsed ? t("Развернуть меню") : t("Свернуть меню")}
           >
             {collapsed ? (
               <PanelLeftOpen size={17} />
@@ -497,20 +500,20 @@ export default function App() {
               <PanelLeftClose size={17} />
             )}
           </button>
-          <nav aria-label="Разделы">
+          <nav aria-label={t("Разделы")}>
             {nav.map(([key, label, Icon]) => (
               <button
                 key={key}
-                aria-label={label}
+                aria-label={t(label)}
                 aria-current={page === key ? "page" : undefined}
-                title={collapsed ? label : undefined}
+                title={collapsed ? t(label) : undefined}
                 className={page === key ? "active" : undefined}
                 onClick={() => go(key)}
               >
                 <span className="nav-icon">
                   <Icon size={18} strokeWidth={1.7} />
                 </span>
-                <span className="nav-label">{label}</span>
+                <span className="nav-label">{t(label)}</span>
               </button>
             ))}
           </nav>
@@ -518,7 +521,7 @@ export default function App() {
             <div className="device">
               <Monitor size={18} aria-hidden="true" />
               <div>
-                <strong>Мой компьютер</strong>
+                <strong>{t("Мой компьютер")}</strong>
                 <small>Dayline {data.version}</small>
               </div>
             </div>
@@ -538,13 +541,13 @@ export default function App() {
                 className="pause-button"
                 aria-label={
                   data.status.kind === "paused"
-                    ? "Продолжить учёт"
-                    : "Приостановить учёт"
+                    ? t("Продолжить учёт")
+                    : t("Приостановить учёт")
                 }
                 onClick={() =>
                   api
                     .pause(data.status.kind !== "paused")
-                    .catch(() => setToast("Не удалось изменить учёт"))
+                    .catch(() => setToast(t("Не удалось изменить учёт")))
                 }
               >
                 {data.status.kind === "paused" ? <Play size={14} /> : <Pause size={14} />}

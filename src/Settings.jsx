@@ -1,3 +1,4 @@
+import { useLocale } from "./i18n.jsx";
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
@@ -21,66 +22,63 @@ const neutralWeights = [0, 25, 50, 75, 100].map((value) => ({
   value,
   label: value + "%",
 }));
-const idleThresholds = [1, 3, 5, 10, 15, 30, 0].map((value) => ({
-  value,
-  label: value ? value + " мин" : "Не выключать",
-}));
+const idleThresholds = [1, 3, 5, 10, 15, 30, 0];
 
 export default function Settings({ data, onSettings, notify, onPrograms }) {
+  const { t, errorText } = useLocale();
   const { settings } = data;
   const setting = async (patch) => {
     try {
       await onSettings(patch);
-      notify("Настройки сохранены");
+      notify(t("Настройки сохранены"));
     } catch (error) {
-      notify(error.message || "Не удалось сохранить настройки");
+      notify(errorText(error, "Не удалось сохранить настройки"));
     }
   };
 
   return (
     <div className="settings-stack">
-      <ThemeSettings />
+      <ThemeSettings notify={notify} />
       <MotionSettings />
       <section className="settings-group focus-settings" aria-labelledby="focus-settings-heading">
-        <h2 id="focus-settings-heading">Фокус</h2>
+        <h2 id="focus-settings-heading">{t("Фокус")}</h2>
         <details className="settings-details">
           <summary className="setting-row">
-            <strong>Работа и перерыв</strong>
+            <strong>{t("Работа и перерыв")}</strong>
             <span className="settings-disclosure-value">
-              {settings.focusWorkMinutes} / {settings.focusBreakMinutes} мин
-              <ChevronDown size={15} aria-hidden="true" />
+              {settings.focusWorkMinutes} / {settings.focusBreakMinutes}{" "}{t("мин")}<ChevronDown size={15} aria-hidden="true" />
             </span>
           </summary>
           <div className="settings-details-content">
             <FocusPreferences settings={settings} onChange={onSettings} />
-            <p className="settings-footnote">Таймер работает в трее и останавливается при блокировке или сне.</p>
+            <p className="settings-footnote">{t("Таймер работает в трее и останавливается при блокировке или сне.")}</p>
           </div>
         </details>
         <div className="setting-row">
-          <strong>Рейтинг фокуса</strong>
+          <strong>{t("Рейтинг фокуса")}</strong>
           <ChoiceSelect
-            label="Расчёт фокуса"
+            label={t("Расчёт фокуса")}
             value={settings.focusScoreMode}
-            options={scoreModes}
+            options={scoreModes.map(({ value, label }) => ({ value, label: t(label) }))}
             onChange={(value) => setting({ focusScoreMode: value })}
           />
         </div>
         <details className="settings-details">
           <summary className="setting-row">
-            <strong>Параметры рейтинга</strong>
+            <strong>{t("Параметры рейтинга")}</strong>
             <ChevronDown size={15} aria-hidden="true" />
           </summary>
           <div className="settings-details-content">
             {settings.focusScoreMode === "goal" ? (
               <label className="setting-row goal-setting">
                 <span>
-                  <strong>Цель работы за день</strong>
-                  <small>От 15 минут до 12 часов</small>
+                  <strong>{t("Цель работы за день")}</strong>
+                  <small>{t("От 15 минут до 12 часов")}</small>
                 </span>
                 <span className="goal-input">
                   <input
                     type="number"
-                    aria-label="Цель работы за день"
+                    aria-label={t("Цель работы за день")}
                     min="15"
                     max="720"
                     step="15"
@@ -93,17 +91,17 @@ export default function Settings({ data, onSettings, notify, onPrograms }) {
                       else event.target.value = settings.focusDailyGoalMinutes;
                     }}
                   />
-                  <span>мин</span>
+                  <span>{t("мин")}</span>
                 </span>
               </label>
             ) : (
               <div className="setting-row">
                 <div>
-                  <strong>Учитывать отдых в общем времени</strong>
-                  <p>Если выключить, рейтинг учитывает только работу и нейтральные программы.</p>
+                  <strong>{t("Учитывать отдых в общем времени")}</strong>
+                  <p>{t("Если выключить, рейтинг учитывает только работу и нейтральные программы.")}</p>
                 </div>
                 <Toggle
-                  label="Учитывать отдых в рейтинге"
+                  label={t("Учитывать отдых в рейтинге")}
                   checked={settings.focusIncludeRest}
                   onChange={() => setting({ focusIncludeRest: !settings.focusIncludeRest })}
                 />
@@ -111,11 +109,11 @@ export default function Settings({ data, onSettings, notify, onPrograms }) {
             )}
             <div className="setting-row">
               <div>
-                <strong>Польза нейтральных программ</strong>
-                <p>Доля нейтрального времени, которую рейтинг засчитывает как полезную.</p>
+                <strong>{t("Польза нейтральных программ")}</strong>
+                <p>{t("Доля нейтрального времени, которую рейтинг засчитывает как полезную.")}</p>
               </div>
               <ChoiceSelect
-                label="Польза нейтральных программ"
+                label={t("Польза нейтральных программ")}
                 value={settings.focusNeutralWeight}
                 options={neutralWeights}
                 onChange={(value) => setting({ focusNeutralWeight: value })}
@@ -123,55 +121,53 @@ export default function Settings({ data, onSettings, notify, onPrograms }) {
             </div>
             <p className="settings-footnote">
               {settings.focusScoreMode === "goal"
-                ? "Полезные минуты ÷ дневная цель × 100"
-                : "Полезное время ÷ учитываемое время × 100"}.
-              Полезное время — работа и выбранная доля нейтрального времени.
-              Максимум — 100 баллов. Таймер сам по себе рабочих минут не добавляет.
-            </p>
-            <button type="button" className="text-button" onClick={onPrograms}>
-              Категории и доли программ
-              <ArrowUpRight size={13} aria-hidden="true" />
+                ? t("Полезные минуты ÷ дневная цель × 100")
+                : t("Полезное время ÷ учитываемое время × 100")}{t(". Полезное время — работа и выбранная доля нейтрального времени. Максимум — 100 баллов. Таймер сам по себе рабочих минут не добавляет.")}</p>
+            <button type="button" className="text-button" onClick={onPrograms}>{t("Категории и доли программ")}<ArrowUpRight size={13} aria-hidden="true" />
             </button>
           </div>
         </details>
       </section>
       <section className="settings-group tracking-settings" aria-labelledby="tracking-settings-heading">
-        <h2 id="tracking-settings-heading">Учёт времени</h2>
+        <h2 id="tracking-settings-heading">{t("Учёт времени")}</h2>
         <div className="setting-row">
-          <strong>Пауза без движения</strong>
+          <strong>{t("Пауза без движения")}</strong>
           <ChoiceSelect
-            label="Порог бездействия"
+            label={t("Порог бездействия")}
             value={settings.idleMinutes}
-            options={idleThresholds}
+            options={idleThresholds.map((value) => ({
+              value,
+              label: value ? t("{0} мин", value) : t("Не выключать"),
+            }))}
             onChange={(value) => setting({ idleMinutes: value })}
           />
         </div>
         <div className="setting-row">
-          <strong>Сайты в Firefox</strong>
+          <strong>{t("Сайты в Firefox")}</strong>
           <Toggle
-            label="Учитывать сайты Firefox"
+            label={t("Учитывать сайты Firefox")}
             checked={settings.trackSites}
             onChange={() => setting({ trackSites: !settings.trackSites })}
           />
         </div>
         <div className="setting-row">
           <div>
-            <strong>Скрывать короткие программы</strong>
-            <p>Меньше минуты. Их время остаётся в статистике.</p>
+            <strong>{t("Скрывать короткие программы")}</strong>
+            <p>{t("Меньше минуты. Их время остаётся в статистике.")}</p>
           </div>
           <Toggle
-            label="Скрывать короткие программы"
+            label={t("Скрывать короткие программы")}
             checked={settings.hideShort}
             onChange={() => setting({ hideShort: !settings.hideShort })}
           />
         </div>
         <div className="setting-row">
           <div>
-            <strong>Запускать вместе с Windows</strong>
-            <p>{data.packaged ? "Запуск в трее, без открытия окна." : "Доступно после установки."}</p>
+            <strong>{t("Запускать вместе с Windows")}</strong>
+            <p>{data.packaged ? t("Запуск в трее, без открытия окна.") : t("Доступно после установки.")}</p>
           </div>
           <Toggle
-            label="Запускать вместе с Windows"
+            label={t("Запускать вместе с Windows")}
             checked={settings.launchAtLogin}
             disabled={!data.packaged}
             onChange={() => setting({ launchAtLogin: !settings.launchAtLogin })}
@@ -179,42 +175,36 @@ export default function Settings({ data, onSettings, notify, onPrograms }) {
         </div>
       </section>
       <section className="settings-group privacy-panel" aria-labelledby="data-settings-heading">
-        <h2 id="data-settings-heading">Данные</h2>
+        <h2 id="data-settings-heading">{t("Данные")}</h2>
         <div className="backup-actions">
           <button
             type="button"
             className="button"
             onClick={async () => {
               try {
-                if (await api.exportData()) notify("Резервная копия сохранена");
+                if (await api.exportData()) notify(t("Резервная копия сохранена"));
               } catch {
-                notify("Не удалось сохранить копию");
+                notify(t("Не удалось сохранить копию"));
               }
             }}
           >
-            <ArrowDownToLine size={17} aria-hidden="true" />
-            Сохранить копию
-          </button>
+            <ArrowDownToLine size={17} aria-hidden="true" />{t("Сохранить копию")}</button>
           <button
             type="button"
             className="button"
             onClick={async () => {
               try {
-                if (await api.importData()) notify("Данные восстановлены");
+                if (await api.importData()) notify(t("Данные восстановлены"));
               } catch {
-                notify("Файл не подходит для Dayline");
+                notify(t("Файл не подходит для Dayline"));
               }
             }}
           >
-            <ArrowUpFromLine size={17} aria-hidden="true" />
-            Восстановить
-          </button>
+            <ArrowUpFromLine size={17} aria-hidden="true" />{t("Восстановить")}</button>
           <button type="button" className="text-button" onClick={() => api.openFolder()}>
-            <FolderOpen size={16} aria-hidden="true" />
-            Папка данных
-          </button>
+            <FolderOpen size={16} aria-hidden="true" />{t("Папка данных")}</button>
         </div>
-        <p className="settings-footnote">История активности и дневник хранятся на этом компьютере.</p>
+        <p className="settings-footnote">{t("История активности и дневник хранятся на этом компьютере.")}</p>
       </section>
     </div>
   );

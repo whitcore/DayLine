@@ -1,3 +1,4 @@
+import { useLocale } from "./i18n.jsx";
 import {
   createContext,
   useContext,
@@ -176,6 +177,7 @@ export const Number = memo(function Number({
   );
 });
 export function Duration({ ms, className = "" }) {
+  const { t } = useLocale();
   const mins = Math.floor(ms / 60000),
     h = Math.floor(mins / 60);
   return (
@@ -183,18 +185,18 @@ export function Duration({ ms, className = "" }) {
       className={"duration " + className}
       aria-label={
         h
-          ? `${h} ч ${mins % 60} мин`
+          ? t("{0} ч {1} мин", h, mins % 60)
           : mins
-            ? `${mins} мин`
+            ? t("{0} мин", mins)
             : ms > 0
-              ? "Меньше минуты"
-              : "0 мин"
+              ? t("Меньше минуты")
+              : t("0 мин")
       }
     >
       {h > 0 && (
         <>
           <Number value={h} />
-          <span> ч </span>
+          <span>{" "}{t("ч")}{" "}</span>
         </>
       )}
       {ms > 0 && mins === 0 ? (
@@ -202,7 +204,7 @@ export function Duration({ ms, className = "" }) {
       ) : (
         <Number value={h ? mins % 60 : mins} pad={h ? 2 : 1} />
       )}
-      <span> мин</span>
+      <span>{" "}{t("мин")}</span>
     </span>
   );
 }

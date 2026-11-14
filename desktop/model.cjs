@@ -148,7 +148,7 @@ function setSiteCategory(state, domain, type) {
   domain = domain.toLowerCase();
   if (type === "study") {
     type = Object.entries(state.types).find(([id, t]) =>
-      !CATEGORIES.includes(id) && t.base === "focus" && /^уч[её]ба$/i.test(t.label.trim()))?.[0] || "c-site-study";
+      !CATEGORIES.includes(id) && t.base === "focus" && /^(уч[её]ба|study)$/i.test(t.label.trim()))?.[0] || "c-site-study";
     if (!Object.hasOwn(state.types, type))
       saveType(state, { id: type, label: "Учёба", color: "#ca8cf6", base: "focus" });
   }

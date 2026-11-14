@@ -35,6 +35,7 @@ const {
   setSiteCategory,
 } = require("./model.cjs");
 const { IconCache } = require("./icons.cjs");
+const english = require("./messages.en.json");
 app.setName("Dayline");
 nativeTheme.themeSource = "dark";
 if (process.platform === "win32") app.setAppUserModelId("app.dayline.desktop");
@@ -66,6 +67,14 @@ if (!app.requestSingleInstanceLock()) {
     browserTimer,
     browserSample = { status: "waiting", domain: "" },
     browserReceived = 0;
+  const localePath = path.join(app.getPath("userData"), "locale.json");
+  let language = "ru";
+  try {
+    if (JSON.parse(fs.readFileSync(localePath, "utf8")) === "en") language = "en";
+  } catch {
+    // Profiles without a language preference use Russian.
+  }
+  const t = (key) => language === "en" && Object.hasOwn(english, key) ? english[key] : key;
   const index = path.resolve(__dirname, "../dist/index.html");
   const iconFile = app.isPackaged
     ? path.join(process.resourcesPath, "icon.png")
@@ -86,28 +95,28 @@ if (!app.requestSingleInstanceLock()) {
     if (testMode)
       return {
         kind: "paused",
-        label: "Учёт на паузе",
-        detail: "Изолированная проверка интерфейса.",
+        label: t("Учёт на паузе"),
+        detail: t("Изолированная проверка интерфейса."),
       };
     if (saveError)
-      return { kind: "error", label: "Ошибка сохранения", detail: saveError };
+      return { kind: "error", label: t("Ошибка сохранения"), detail: t(saveError) };
     if (tracker.paused)
       return {
         kind: "paused",
-        label: "Учёт на паузе",
-        detail: "Продолжи, когда будешь готов.",
+        label: t("Учёт на паузе"),
+        detail: t("Продолжи, когда будешь готов."),
       };
     if (helperError || Date.now() - lastReceived > 6000)
       return {
         kind: "error",
-        label: "Учёт недоступен",
-        detail: helperError || "Нет ответа от Windows. Перезапусти приложение.",
+        label: t("Учёт недоступен"),
+        detail: t(helperError || "Нет ответа от Windows. Перезапусти приложение."),
       };
     if (locked || suspended || lastSample?.locked)
       return {
         kind: "idle",
-        label: "ПК заблокирован",
-        detail: "Это время не учитывается.",
+        label: t("ПК заблокирован"),
+        detail: t("Это время не учитывается."),
       };
     if (
       storage.data.settings.idleMinutes > 0 &&
@@ -115,13 +124,13 @@ if (!app.requestSingleInstanceLock()) {
     )
       return {
         kind: "idle",
-        label: "Перерыв",
-        detail: "Время бездействия не учитывается.",
+        label: t("Перерыв"),
+        detail: t("Время бездействия не учитывается."),
       };
     return {
       kind: "active",
-      label: "Учёт идёт",
-      detail: lastSample?.name || "Ожидаю активное окно",
+      label: t("Учёт идёт"),
+      detail: lastSample?.name || t("Ожидаю активное окно"),
     };
   }
   function snapshot(date = localDate(Date.now()), iconRevision = -1) {
@@ -179,7 +188,7 @@ if (!app.requestSingleInstanceLock()) {
           }
         : null,
       firstStarted: storage.data.createdAt,
-      storageWarning: storage.warning,
+      storageWarning: t(storage.warning),
       packaged: app.isPackaged,
       version: app.getVersion(),
     };
@@ -296,9 +305,9 @@ if (!app.requestSingleInstanceLock()) {
   function updateTray() {
     tray.setContextMenu(
       Menu.buildFromTemplate([
-        { label: "Открыть Dayline", click: show },
+        { label: t("Открыть Dayline"), click: show },
         {
-          label: tracker.paused ? "Продолжить учёт" : "Приостановить учёт",
+          label: tracker.paused ? t("Продолжить учёт") : t("Приостановить учёт"),
           click: () => {
             tracker.paused = !tracker.paused;
             tracker.reset();
@@ -307,11 +316,11 @@ if (!app.requestSingleInstanceLock()) {
           },
         },
         { type: "separator" },
-        { label: "Выход из Dayline", click: () => app.quit() },
+        { label: t("Выход из Dayline"), click: () => app.quit() },
       ]),
     );
     tray.setToolTip(
-      tracker.paused ? "Dayline · учёт на паузе" : "Dayline · экранное время",
+      tracker.paused ? t("Dayline · учёт на паузе") : t("Dayline · экранное время"),
     );
   }
   function allowed(event) {
@@ -334,6 +343,7 @@ if (!app.requestSingleInstanceLock()) {
           "dayline:focus-snapshot",
           "dayline:focus-action",
           "dayline:theme",
+          "dayline:locale",
         ].includes(channel)
       ) {
         if (summaries.state !== storage.data) summaries.reset(storage.data);
@@ -348,7 +358,7 @@ if (!app.requestSingleInstanceLock()) {
       try {
         storage = new Storage(app.getPath("userData"));
       } catch (error) {
-        dialog.showErrorBox("Dayline: данные не загружены", error.message);
+        dialog.showErrorBox(t("Dayline: данные не загружены"), t(error.message));
         app.quit();
         return;
       }
@@ -365,11 +375,11 @@ if (!app.requestSingleInstanceLock()) {
           if (!testMode && Notification.isSupported())
             try {
               new Notification({
-                title: phase === "work" ? "Фокус завершён" : "Перерыв завершён",
+                title: phase === "work" ? t("Фокус завершён") : t("Перерыв завершён"),
                 body:
                   phase === "work"
-                    ? "Хорошая работа. Можно сделать перерыв."
-                    : "Можно начать следующий рабочий отрезок.",
+                    ? t("Хорошая работа. Можно сделать перерыв.")
+                    : t("Можно начать следующий рабочий отрезок."),
                 icon: iconFile,
               }).show();
             } catch {}
@@ -445,6 +455,17 @@ if (!app.requestSingleInstanceLock()) {
       tray.on("click", show);
       updateTray();
       handle("dayline:snapshot", snapshot);
+      handle("dayline:locale", (next) => {
+        if (next === undefined || next === language) return language;
+        if (next !== "en" && next !== "ru") throw Error("Invalid language");
+        const temporary = localePath + ".tmp";
+        fs.writeFileSync(temporary, JSON.stringify(next), "utf8");
+        fs.renameSync(temporary, localePath);
+        language = next;
+        updateTray();
+        notify();
+        return language;
+      });
       handle("dayline:window-visible", windowVisible);
       handle("dayline:focus-snapshot", () => focus.snapshot());
       handle("dayline:focus-action", (action, options) => {
@@ -458,7 +479,7 @@ if (!app.requestSingleInstanceLock()) {
           "configure",
         ];
         if (!allowed.includes(action))
-          throw Error("Неизвестное действие таймера.");
+          throw Error(t("Неизвестное действие таймера."));
         if (action === "configure") {
           const merged = focusSettings({
             ...storage.data.settings,
@@ -555,11 +576,11 @@ if (!app.requestSingleInstanceLock()) {
         if (reset) await icons.reset(id, storage.data.apps[id]);
         else {
           const result = await dialog.showOpenDialog(win, {
-            title: "Иконка программы",
+            title: t("Иконка программы"),
             properties: ["openFile"],
             filters: [
               {
-                name: "Иконки и программы",
+                name: t("Иконки и программы"),
                 extensions: ["png", "jpg", "jpeg", "ico", "webp", "exe"],
               },
             ],
@@ -641,7 +662,7 @@ if (!app.requestSingleInstanceLock()) {
       handle("dayline:export", async () => {
         const result = await dialog.showSaveDialog(win, {
           defaultPath: `Dayline-${localDate(Date.now())}.json`,
-          filters: [{ name: "Резервная копия Dayline", extensions: ["json"] }],
+          filters: [{ name: t("Резервная копия Dayline"), extensions: ["json"] }],
         });
         if (result.canceled) return false;
         persist();
@@ -659,12 +680,12 @@ if (!app.requestSingleInstanceLock()) {
       handle("dayline:import", async () => {
         const result = await dialog.showOpenDialog(win, {
           properties: ["openFile"],
-          filters: [{ name: "Резервная копия Dayline", extensions: ["json"] }],
+          filters: [{ name: t("Резервная копия Dayline"), extensions: ["json"] }],
         });
         if (result.canceled) return false;
         const file = result.filePaths[0];
         if (fs.statSync(file).size > 200000000)
-          throw Error("Слишком большой файл.");
+          throw Error(t("Слишком большой файл."));
         const incoming = validateState(
           JSON.parse(fs.readFileSync(file, "utf8")),
         );
@@ -675,11 +696,11 @@ if (!app.requestSingleInstanceLock()) {
         delete incoming.iconBundle;
         const confirmation = await dialog.showMessageBox(win, {
           type: "question",
-          buttons: ["Отмена", "Восстановить"],
+          buttons: [t("Отмена"), t("Восстановить")],
           defaultId: 0,
           cancelId: 0,
-          message: "Заменить текущие данные резервной копией?",
-          detail: "Текущий файл останется в dayline.json.bak.",
+          message: t("Заменить текущие данные резервной копией?"),
+          detail: t("Текущий файл останется в dayline.json.bak."),
         });
         if (confirmation.response !== 1) return false;
         tracker.reset();

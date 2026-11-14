@@ -1,3 +1,4 @@
+import { useLocale } from "./i18n.jsx";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Check, Play } from "lucide-react";
 import { Toggle, useMotion } from "./motion.jsx";
@@ -10,6 +11,7 @@ const modes = [
 ];
 
 export default function MotionSettings() {
+  const { t } = useLocale();
   const { enabled, setEnabled, style, setStyle, effective, systemReduced } = useMotion();
   const [preview, setPreview] = useState(null);
   const example = useRef(null);
@@ -43,14 +45,14 @@ export default function MotionSettings() {
     event.currentTarget.parentElement.children[next].focus();
   };
   const description = !enabled
-    ? "Выключены"
+    ? t("Выключены")
     : style === "system"
       ? systemReduced
-        ? "Мягкие. Windows просит уменьшить движение."
-        : "Полные. Windows разрешает движение."
+        ? t("Мягкие. Windows просит уменьшить движение.")
+        : t("Полные. Windows разрешает движение.")
       : effective === "reduced"
-        ? "Мягкие. Только плавное появление."
-        : "Полные. Появление, раскрытие и отклик кнопок.";
+        ? t("Мягкие. Только плавное появление.")
+        : t("Полные. Появление, раскрытие и отклик кнопок.");
 
   useLayoutEffect(() => {
     if (!preview?.animate || !enabled) return;
@@ -72,11 +74,11 @@ export default function MotionSettings() {
 
   return (
     <section className="settings-group motion-settings" aria-labelledby="motion-settings-heading">
-      <h2 id="motion-settings-heading">Анимации</h2>
+      <h2 id="motion-settings-heading">{t("Анимации")}</h2>
       <div className="setting-row">
-        <strong>Анимации интерфейса</strong>
+        <strong>{t("Анимации интерфейса")}</strong>
         <Toggle
-          label="Анимации интерфейса"
+          label={t("Анимации интерфейса")}
           checked={enabled}
           onChange={() => {
             setPreview(null);
@@ -86,10 +88,10 @@ export default function MotionSettings() {
       </div>
       <div className="setting-row motion-mode-row">
         <div>
-          <strong>Режим</strong>
-          <p className="motion-mode-description" role="status">Сейчас: {description}</p>
+          <strong>{t("Режим")}</strong>
+          <p className="motion-mode-description" role="status">{t("Сейчас:")}{" "}{description}</p>
         </div>
-        <div className="motion-mode-group" role="radiogroup" aria-label="Режим анимаций">
+        <div className="motion-mode-group" role="radiogroup" aria-label={t("Режим анимаций")}>
           {modes.map(({ value, label }, index) => (
             <button
               type="button"
@@ -100,7 +102,7 @@ export default function MotionSettings() {
               onClick={() => choose(value)}
               onKeyDown={(event) => move(event, index)}
             >
-              {label}
+              {t(label)}
             </button>
           ))}
         </div>
@@ -112,13 +114,11 @@ export default function MotionSettings() {
           disabled={!enabled}
           onClick={(event) => setPreview({ animate: event.detail > 0 })}
         >
-          <Play size={15} aria-hidden="true" />
-          Показать анимации
-        </button>
+          <Play size={15} aria-hidden="true" />{t("Показать анимации")}</button>
         {preview && enabled && (
           <span className="demo-mini-card" ref={example}>
             <Check size={16} aria-hidden="true" />
-            {effective === "reduced" ? "Плавное появление" : "Появление с движением"}
+            {effective === "reduced" ? t("Плавное появление") : t("Появление с движением")}
           </span>
         )}
       </div>
