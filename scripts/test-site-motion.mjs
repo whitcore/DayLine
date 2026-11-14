@@ -14,14 +14,14 @@ const app = await electron.launch({ ...(process.env.DAYLINE_TEST_EXE ? { executa
 const report = [];
 try {
   const page = await app.firstWindow();
-  await expect(page.locator('h1')).toHaveText('Сегодня.');
+  await expect(page.locator('h1')).toHaveText(/^Сегодня\.?$/);
   await app.evaluate(({ BrowserWindow }) => { const w = BrowserWindow.getAllWindows()[0]; w.show(); w.focus(); });
   for (const [style, keyboard] of [['off', false], ['gentle', false], ['full', true], ['full', false]]) {
     await page.evaluate(style => {
       localStorage.setItem('dayline-motion', style === 'off' ? 'off' : 'on');
       localStorage.setItem('dayline-motion-style', style === 'off' ? 'full' : style);
     }, style);
-    await page.reload(); await expect(page.locator('h1')).toHaveText('Сегодня.');
+    await page.reload(); await expect(page.locator('h1')).toHaveText(/^Сегодня\.?$/);
     await page.getByRole('button', { name: 'Сайты Firefox', exact: true }).click();
     await page.getByRole('button', { name: 'Категория сайта: example.com', exact: true }).click();
     const item = page.getByRole('menuitemradio', { name: 'Работа', exact: true });

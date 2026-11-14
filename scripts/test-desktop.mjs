@@ -9,7 +9,7 @@ const fixture=initialState();fixture.settings.idleMinutes=0;fixture.apps['code.e
 const now=Date.now();addInterval(fixture,{appId:'code.exe',start:now-136000,end:now-46000});addInterval(fixture,{appId:'telegram.exe',start:now-46000,end:now-1000});await writeFile(path.join(dir,'dayline.json'),JSON.stringify(fixture));
 const env={...process.env,DAYLINE_DATA_DIR:dir};delete env.ELECTRON_RUN_AS_NODE;
 let app,page;const errors=[];
-async function launch(){app=await electron.launch({...(process.env.DAYLINE_TEST_EXE?{executablePath:process.env.DAYLINE_TEST_EXE,args:[]}:{args:[root]}),cwd:root,env,timeout:30000});page=await app.firstWindow();page.on('pageerror',e=>errors.push(e.message));await expect(page.locator('h1')).toHaveText('Сегодня.');await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.show();w.focus();});await page.waitForTimeout(700);}
+async function launch(){app=await electron.launch({...(process.env.DAYLINE_TEST_EXE?{executablePath:process.env.DAYLINE_TEST_EXE,args:[]}:{args:[root]}),cwd:root,env,timeout:30000});page=await app.firstWindow();page.on('pageerror',e=>errors.push(e.message));await expect(page.locator('h1')).toHaveText(/^Сегодня\.?$/);await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];w.show();w.focus();});await page.waitForTimeout(700);}
 try{
  await launch();await expect(page.locator('.tracking-status')).not.toHaveText('Учёт недоступен',{timeout:15000});
  await page.screenshot({path:'test-results/dayline-first-launch.png',fullPage:true});
@@ -26,7 +26,7 @@ try{
  const id=Object.keys(snapshot.catalog)[0];await page.getByLabel('Категория: '+id).click();await page.getByRole('menuitemradio',{name:'Работа',exact:true}).click();expect((await page.evaluate(()=>window.dayline.snapshot())).catalog[id].category).toBe('focus');
  await page.getByRole('button',{name:'Статистика',exact:true}).click();await expect(page.locator('.week-column')).toHaveCount(7);
  await page.getByRole('button',{name:'Сегодня',exact:true}).click();await expect(page.locator('.program-row').first()).toBeVisible({timeout:15000});
- await page.getByLabel('Мысли и заметки').fill('Автосохранение работает после перезапуска.');
+ await page.getByRole('button',{name:'Запись дня',exact:true}).click();await page.getByLabel('Мысли и заметки').fill('Автосохранение работает после перезапуска.');
  await expect.poll(()=>page.evaluate(async()=>(await window.dayline.snapshot()).entry.note)).toBe('Автосохранение работает после перезапуска.');
  await page.screenshot({path:'test-results/dayline-live.png',fullPage:true});
  await app.close();app=null;

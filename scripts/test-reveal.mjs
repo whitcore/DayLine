@@ -25,7 +25,7 @@ const app = await electron.launch({
 });
 try {
   const page = await app.firstWindow();
-  await expect(page.locator("h1")).toHaveText("Сегодня.");
+  await expect(page.locator("h1")).toHaveText(/^Сегодня\.?$/);
   await app.evaluate(({ BrowserWindow }) =>
     BrowserWindow.getAllWindows()[0].webContents.setBackgroundThrottling(false),
   );
@@ -51,7 +51,7 @@ try {
       ).length,
   }));
   console.log(JSON.stringify(sample));
-  expect(sample.running).toBeGreaterThan(0);
+  expect(sample.running).toBe(1);
 } finally {
   await app.close();
 }

@@ -1,5 +1,4 @@
 /* Palette values stay here; components consume semantic roles. */
-:root,
 :root[data-theme="dark"],
 [data-preview-theme="dark"],
 .dayline-dialog::backdrop {
@@ -32,6 +31,41 @@
   --toggle-knob: #a5a5a5;
   --shadow-color: #00000080;
   --backdrop: #000000b3;
+}
+
+:root:not([data-theme]),
+:root[data-theme="graphite"],
+[data-preview-theme="graphite"],
+:root[data-theme="graphite"] .dayline-dialog::backdrop {
+  color-scheme: dark;
+  --bg: #191919;
+  --sidebar-bg: #20201f;
+  --surface: #212120;
+  --surface-alt: #1c1c1b;
+  --surface-raised: #2c2b29;
+  --surface-input: #232322;
+  --border: #3a3936;
+  --border-subtle: #30302e;
+  --border-strong: #565550;
+  --text: #eae8e3;
+  --text-secondary: #c9c5be;
+  --muted: #a6a29a;
+  --faint: #98948e;
+  --lime: #b4be92;
+  --violet: #b9a6c3;
+  --pink: #a49b92;
+  --cyan: #9eb8b6;
+  --yellow: #b08fa6;
+  --orange: #c9ac88;
+  --green: #9fbc9e;
+  --blue: #9fb1cc;
+  --accent-fill: #b4be92;
+  --accent-fill-hover: #c2cca2;
+  --on-accent: #222619;
+  --on-color: #1d1d1b;
+  --toggle-knob: #a6a29a;
+  --shadow-color: #00000075;
+  --backdrop: #000000a6;
 }
 
 :root[data-theme="light"],

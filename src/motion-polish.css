@@ -19,35 +19,6 @@
 .sidebar nav > button.active .nav-icon {
   color: var(--text-secondary);
 }
-.nav-highlight {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  gap: 10px;
-  background: var(--accent-fill);
-  z-index: 2;
-  pointer-events: none;
-  color: var(--on-accent);
-  overflow: hidden;
-  clip-path: inset(0 0 100% 0 round 15px);
-}
-.nav-highlight-row {
-  height: 49px;
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  padding: 0 18px;
-  font-size: 14px;
-  font-weight: 500;
-  white-space: nowrap;
-}
-.sidebar-collapsed .nav-highlight-row {
-  padding: 0;
-  justify-content: center;
-}
-.sidebar-collapsed .nav-highlight-label {
-  display: none;
-}
 .sidebar nav > button:active {
   scale: 0.98;
 }
@@ -162,107 +133,6 @@ html[data-input="keyboard"] .panel::before {
   color: var(--muted);
   margin-bottom: 14px;
 }
-.motion-demo {
-  height: 182px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 15px;
-  background: var(--surface-alt);
-  position: relative;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  isolation: isolate;
-}
-.demo-grid {
-  position: absolute;
-  inset: 0;
-  background-image: linear-gradient(var(--grid-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
-  background-size: 20px 20px;
-  mask-image: radial-gradient(ellipse, #000, transparent 75%);
-  z-index: -1;
-}
-.demo-mini-card {
-  width: min(240px, 85%);
-  padding: 16px 18px;
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  box-shadow: 0 14px 24px var(--shadow-color);
-}
-.demo-card-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 15px;
-  font-size: 12px;
-  color: var(--text);
-}
-.demo-card-title > span {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-.demo-card-title > span > svg {
-  color: var(--violet);
-}
-.demo-card-title > i {
-  width: 19px;
-  height: 19px;
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--lime) 9.8%, transparent);
-  display: grid;
-  place-items: center;
-  color: var(--lime);
-}
-.demo-bar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 9px;
-  color: var(--muted);
-  margin-top: 10px;
-}
-.demo-bar > span {
-  width: 42px;
-}
-.demo-bar > div {
-  flex: 1;
-  background: var(--hover);
-  height: 4px;
-  border-radius: 3px;
-  overflow: hidden;
-}
-.demo-bar i {
-  height: 100%;
-  display: block;
-  border-radius: inherit;
-}
-.motion-demo-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 14px;
-}
-.motion-demo-footer > span {
-  font-size: 10px;
-  color: var(--muted);
-}
-.motion-demo-footer > span::before {
-  content: "";
-  display: inline-block;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--violet);
-  margin-right: 7px;
-}
-.motion-demo-footer button {
-  font-size: 10px;
-  padding: 9px 10px;
-  white-space: nowrap;
-}
 /* Native dialog backdrop follows the same opacity budget as the panel. */
 .dayline-dialog::backdrop {
   animation: none;
@@ -298,9 +168,6 @@ html[data-motion="off"] *::after {
   animation: none !important;
   transition: none !important;
   scroll-behavior: auto !important;
-}
-html[data-input="keyboard"] .nav-highlight {
-  transition: none !important;
 }
 html[data-input="keyboard"] .motion-mode-group button {
   transition: none;

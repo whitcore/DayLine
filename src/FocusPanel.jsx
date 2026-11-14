@@ -5,7 +5,6 @@ import {
   Play,
   RotateCcw,
   SkipForward,
-  Timer,
 } from "lucide-react";
 import { Panel } from "./motion.jsx";
 import "@fontsource-variable/inter";
@@ -44,8 +43,8 @@ function phaseState(timer) {
           : "Одна задача. Таймер продолжит работать в трее.",
     };
   return {
-    label: "Твой ритм",
-    hint: "Выбери одну задачу и начни, когда будешь готов.",
+    label: "Готов к запуску",
+    hint: "",
   };
 }
 
@@ -180,11 +179,12 @@ export default function FocusPanel({ api = window.dayline, notify }) {
     >
       <div className="focus-heading">
         <h2 id={titleId}>
-          <Timer size={19} strokeWidth={1.7} />
           Таймер фокуса
         </h2>
-        <span className="focus-status" role="status">
-          {state.label}
+        <span className="focus-status" role="status" title={state.hint || undefined}>
+          {status === "idle" && timer
+            ? `${timer.workMinutes} мин работы · ${timer.breakMinutes} мин отдыха`
+            : state.label}
         </span>
       </div>
       <div className="focus-body">
@@ -201,12 +201,8 @@ export default function FocusPanel({ api = window.dayline, notify }) {
           >
             {timer ? clockText(timer.remainingMs) : "—:—"}
           </div>
-          <span className="focus-phase-label">
-            {isBreak ? "перерыв" : "работа"}
-          </span>
         </div>
         <div className="focus-session">
-          <p className="focus-hint">{state.hint}</p>
           <div className="focus-actions" aria-busy={busy}>
             <button
               type="button"
@@ -237,21 +233,11 @@ export default function FocusPanel({ api = window.dayline, notify }) {
           </div>
         </div>
       </div>
-      <div className="focus-progress" aria-hidden="true">
-        <span style={{ transform: `scaleX(${progress})` }} />
-      </div>
-      <div className="focus-footer">
-        <span>
-          {timer
-            ? `${timer.workMinutes} мин работы · ${timer.breakMinutes} мин отдыха`
-            : "Работа и отдых в твоём ритме"}
-        </span>
-        <span>
-          {timer?.completedWorkSessions > 0
-            ? `Завершено сессий: ${timer.completedWorkSessions}`
-            : "Без автоматического старта"}
-        </span>
-      </div>
+      {status !== "idle" && status !== "loading" && (
+        <div className="focus-progress" aria-hidden="true">
+          <span style={{ transform: `scaleX(${progress})` }} />
+        </div>
+      )}
       {error && (
         <p className="focus-error" role="alert">
           {error}

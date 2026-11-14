@@ -2,15 +2,14 @@ import {
   createContext,
   useContext,
   useEffect,
-  useId,
   useLayoutEffect,
   useMemo,
   useState,
 } from "react";
-import { Check, Palette } from "lucide-react";
-import { Panel } from "./motion.jsx";
+import { ChoiceSelect } from "./DatePicker.jsx";
 
 export const themes = [
+  { id: "graphite", label: "Графит", scheme: "dark" },
   { id: "dark", label: "Яркая тёмная", scheme: "dark" },
   { id: "light", label: "Яркая светлая", scheme: "light" },
   { id: "soft-dark", label: "Мягкая тёмная", scheme: "dark" },
@@ -19,13 +18,14 @@ export const themes = [
 
 const ThemeContext = createContext(null);
 const isTheme = (value) => themes.some(({ id }) => id === value);
+const themeOptions = themes.map(({ id, label }) => ({ value: id, label }));
 
 function savedTheme() {
   try {
     const saved = localStorage.getItem("dayline-theme");
-    return isTheme(saved) ? saved : "dark";
+    return isTheme(saved) ? saved : "graphite";
   } catch {
-    return "dark";
+    return "graphite";
   }
 }
 
@@ -68,52 +68,13 @@ export function useTheme() {
 
 export default function ThemeSettings() {
   const { theme, setTheme } = useTheme();
-  const groupId = useId();
   return (
-    <Panel className="theme-settings">
-      <div className="section-heading">
-        <h2 id={`${groupId}-heading`}>
-          <span className="heading-icon cyan">
-            <Palette />
-          </span>
-          Оформление
-        </h2>
+    <section className="settings-group theme-settings" aria-labelledby="theme-settings-heading">
+      <h2 id="theme-settings-heading">Внешний вид</h2>
+      <div className="setting-row">
+        <strong>Тема</strong>
+        <ChoiceSelect label="Тема" value={theme} options={themeOptions} onChange={setTheme} />
       </div>
-      <p className="theme-description">Выбери палитру, в которой комфортно работать.</p>
-      <div className="theme-options" role="radiogroup" aria-labelledby={`${groupId}-heading`}>
-        {themes.map(({ id, label }) => (
-          <label className="theme-choice" key={id} data-selected={theme === id}>
-            <input
-              type="radio"
-              name={`${groupId}-theme`}
-              value={id}
-              checked={theme === id}
-              onChange={() => setTheme(id)}
-            />
-            <span className="theme-preview" data-preview-theme={id} aria-hidden="true">
-              <span className="theme-preview-sidebar">
-                <i />
-                <i />
-                <i />
-              </span>
-              <span className="theme-preview-content">
-                <span className="theme-preview-title" />
-                <span className="theme-preview-card">
-                  <i />
-                  <i />
-                  <i />
-                </span>
-              </span>
-            </span>
-            <span className="theme-choice-label">
-              {label}
-              <span className="theme-choice-check" aria-hidden="true">
-                {theme === id && <Check size={12} strokeWidth={2.2} />}
-              </span>
-            </span>
-          </label>
-        ))}
-      </div>
-    </Panel>
+    </section>
   );
 }

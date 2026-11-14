@@ -393,12 +393,12 @@ if (!app.requestSingleInstanceLock()) {
         minWidth: 880,
         minHeight: 680,
         show: false,
-        backgroundColor: "#070707",
+        backgroundColor: "#191919",
         title: "Dayline",
         titleBarStyle: "hidden",
         titleBarOverlay: {
-          color: "#070707",
-          symbolColor: "#999999",
+          color: "#191919",
+          symbolColor: "#a6a29a",
           height: 40,
         },
         icon: iconFile,
@@ -478,6 +478,7 @@ if (!app.requestSingleInstanceLock()) {
       });
       handle("dayline:theme", (id) => {
         const palette = {
+          graphite: ["#191919", "#a6a29a"],
           dark: ["#070707", "#969696"],
           light: ["#f5f5f7", "#666670"],
           "soft-dark": ["#070707", "#969696"],

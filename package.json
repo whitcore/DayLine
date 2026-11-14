@@ -1,7 +1,7 @@
 {
   "name": "dayline",
   "productName": "Dayline",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Личное экранное время, настроение и итоги дня",
   "author": "Dayline",
   "private": true,
@@ -14,6 +14,7 @@
     "start": "npm run build && npm run native && electron .",
     "test": "node --test tests/*.test.cjs",
     "test:desktop": "node scripts/test-desktop.mjs",
+    "test:installers": "node scripts/test-installers.mjs",
     "package": "npm run build && npm run native && electron-builder --win nsis --x64"
   },
   "dependencies": {
@@ -23,8 +24,7 @@
     "lucide-react": "^0.468.0",
     "motion": "^14.10.1",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "recharts": "^3.10.1"
+    "react-dom": "^19.2.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.0",
@@ -38,7 +38,7 @@
     "productName": "Dayline",
     "asar": true,
     "directories": {
-      "output": "release/1.4.0"
+      "output": "release/1.5.0"
     },
     "files": [
       "dist/**/*",
@@ -70,6 +70,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "runAfterFinish": false,
+      "deleteAppDataOnUninstall": false,
       "artifactName": "Dayline-Setup-${version}.${ext}"
     }
   }

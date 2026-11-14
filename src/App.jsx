@@ -1,17 +1,8 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import {
-  ArrowDownToLine,
-  ArrowUpFromLine,
   CalendarDays,
   ChartNoAxesCombined,
   Check,
-  ChevronLeft,
-  ChevronRight,
-  Clock3,
-  Code2,
-  Coffee,
-  FolderOpen,
-  Gamepad2,
   Home,
   Layers3,
   Monitor,
@@ -19,36 +10,26 @@ import {
   Pause,
   Play,
   Settings2,
-  ShieldCheck,
-  Target,
-  Timer,
-  ArrowUpRight,
-  Search,
-  ChevronDown,
   PanelLeftClose,
   PanelLeftOpen,
-  Sparkles,
 } from "lucide-react";
 import {
   AnimatePresence,
   motion,
   Panel,
   RouteStage,
-  NavigationHighlight,
   useSidebarTransition,
   Number as AnimatedNumber,
   Duration,
-  Fill,
-  Toggle,
   useMotion,
 } from "./motion.jsx";
 import Journal, { JournalEditor } from "./Journal.jsx";
-const WeekChart = lazy(() => import("./WeekChart.jsx"));
 import { categories, dateKey, pretty, shift, time } from "./shared.js";
 import ProgramList, { ProgramsUIProvider } from "./ProgramsUI.jsx";
 import Settings from "./Settings.jsx";
 import DatePicker from "./DatePicker.jsx";
 import FocusPanel from "./FocusPanel.jsx";
+import WeekChart from "./WeekChart.jsx";
 const api = window.dayline;
 function Brand() {
   return (
@@ -77,7 +58,6 @@ function Legend() {
   );
 }
 function Timeline({ data }) {
-  const { active } = useMotion();
   const groups = [],
     midnight = new Date(data.date + "T00:00:00").getTime(),
     dayLength =
@@ -93,7 +73,7 @@ function Timeline({ data }) {
       last.cat === cat &&
       last.type === type &&
       last.appId === s.appId &&
-      Math.abs(last.start + last.width - start) < 0.025
+      Math.abs(last.start + last.width - start) < 0.000001
     )
       last.width += width;
     else groups.push({ start, width, cat, type, appId: s.appId, key: s.start });
@@ -103,12 +83,8 @@ function Timeline({ data }) {
       <div className="section-heading">
         <div>
           <h2>
-            <span className="heading-icon cyan">
-              <ChartNoAxesCombined />
-            </span>
-            Лента дня <span className="subtle">/ 24 часа</span>
+            Лента дня
           </h2>
-          <p>Когда и на что уходило время</p>
         </div>
         <Legend />
       </div>
@@ -119,15 +95,12 @@ function Timeline({ data }) {
           ))}
         </div>
         {groups.map((s) => (
-          <motion.div
+          <div
             key={s.key}
             className="timeline-segment"
-            initial={active ? { opacity: 0, scaleX: 0 } : false}
-            animate={{ opacity: 1, scaleX: 1 }}
-            transition={{ duration: active ? 0.24 : 0 }}
             style={{
               left: s.start + "%",
-              width: Math.max(s.width, 0.1) + "%",
+              width: s.width + "%",
               background: (() => {
                 const app = data.catalog[s.appId],
                   parts = Object.entries(s.type ? { [s.type]: 100 } : app?.allocations || { [s.cat]: 100 }),
@@ -152,7 +125,6 @@ function Timeline({ data }) {
                         .join(",") +
                       ")";
               })(),
-              transformOrigin: "left",
             }}
             title={`${data.catalog[s.appId]?.name || s.appId} · ${time((s.width / 100) * dayLength)}`}
           />
@@ -178,95 +150,83 @@ function Timeline({ data }) {
       </div>
       {!data.sessions.length && (
         <p className="timeline-empty">
-          Пользуйся компьютером как обычно — твой день начнёт складываться
-          здесь.
+          За этот день нет записей активности.
         </p>
       )}
     </Panel>
   );
 }
 function Score({ data }) {
-  const { active } = useMotion(),
-    r = 48,
-    c = 2 * Math.PI * r,
-    score = data.score;
+  const score = data.score;
   return (
     <Panel className="score-panel">
-      <div className="section-heading">
-        <h2>
-          <span className="heading-icon pink">
-            <Target />
-          </span>
-          Фокус дня
-        </h2>
-      </div>
+      <h2>Фокус дня</h2>
       <div className="score-content">
-        <div className="score-ring">
-          <svg viewBox="0 0 120 120">
-            <circle cx="60" cy="60" r={r} className="ring-track" />
-            <motion.circle
-              cx="60"
-              cy="60"
-              r={r}
-              className="ring-fill"
-              strokeDasharray={c}
-              initial={active ? { strokeDashoffset: c } : false}
-              animate={{ strokeDashoffset: c * (1 - (score || 0) / 100) }}
-              transition={{
-                duration: active ? 0.28 : 0,
-                ease: [0.23, 1, 0.32, 1],
-              }}
-            />
-          </svg>
-          <div>
-            <strong>
-              {score === null ? "—" : <AnimatedNumber value={score} />}
-            </strong>
-            <span>из 100</span>
-          </div>
-        </div>
-        <div>
-          <h3>
-            {score === null
-              ? "Без оценок"
-              : score >= 70
-                ? "В хорошем ритме"
-                : score >= 40
-                  ? "Свой баланс"
-                  : "День без спешки"}
-          </h3>
-          <p>
-            {score === null
-              ? "Нужно немного активности, чтобы собрать картину дня."
-              : data.scoreMode === "goal"
-                ? `Выполнено ${score}% дневной цели по полезному времени.`
-                : `${score}% учитываемого времени — полезное.`}
-          </p>
-        </div>
+        <strong>{score === null ? "—" : score}</strong>
+        {score !== null && <span> / 100</span>}
       </div>
-      <p className="score-note">
-        Формула и цель задаются в настройках фокуса. Отдых тоже нужен.
+      <p className="score-caption">
+        {score === null
+          ? "Недостаточно данных"
+          : data.scoreMode === "goal"
+            ? "Доля дневной цели"
+            : "Доля полезного времени"}
       </p>
     </Panel>
   );
 }
-function Today({ data, onCategory, onSave }) {
-  const { active } = useMotion();
+function TodayPrograms({ data, onCategory, onSave, onShowAll }) {
+  const [openRequest, setOpenRequest] = useState(0);
+  const [expanded, setExpanded] = useState(false);
+  const editorId = useId();
+  return (
+    <div className="today-programs">
+      <ProgramList
+        apps={data.apps}
+        icons={data.icons}
+        onCategory={onCategory}
+        totalMs={data.totalMs}
+        limit={5}
+        onShowAll={onShowAll}
+        headingAction={
+          <button
+            type="button"
+            className="quiet-button day-entry-button"
+            aria-expanded={expanded}
+            aria-controls={expanded ? editorId : undefined}
+            onClick={() => setOpenRequest((n) => n + 1)}
+          >
+            <NotebookPen size={15} aria-hidden="true" />
+            Запись дня
+          </button>
+        }
+      />
+      <JournalEditor
+        key={data.date}
+        id={editorId}
+        compact
+        date={data.date}
+        entry={data.entry}
+        onSave={onSave}
+        openRequest={openRequest}
+        onExpandedChange={setExpanded}
+      />
+    </div>
+  );
+}
+function Today({ data, onCategory, onSave, onShowAll }) {
   const total = Math.floor(data.totalMs / 60000);
+  const parts = Object.entries(categories).map(([key, category]) => ({
+    ...category,
+    key,
+    ms: data[`${key}Ms`],
+  }));
   return (
     <>
       <div className="overview-grid">
         <Panel className="hero-panel">
           <div className="hero-top">
-            <h2>
-              <span className="heading-icon lime">
-                <Clock3 />
-              </span>
-              Экранное время
-            </h2>
-            <span className="device-label">
-              <Monitor size={17} /> Этот компьютер
-            </span>
+            <h2>Экранное время</h2>
           </div>
           <div
             className="big-time"
@@ -281,71 +241,25 @@ function Today({ data, onCategory, onSave }) {
             </strong>
             <span>мин</span>
           </div>
-          <div className="time-distribution">
-            {Object.entries(categories).map(([key, c]) => (
-              <div key={key}>
-                <span>
-                  <i style={{ background: c.color }} />
-                  {c.label}
-                </span>
-                <strong>
-                  <Duration
-                    ms={
-                      data[
-                        key === "focus"
-                          ? "focusMs"
-                          : key === "rest"
-                            ? "restMs"
-                            : "neutralMs"
-                      ]
-                    }
-                  />
-                </strong>
-              </div>
+          <div className="distribution-bar" aria-hidden="true">
+            {parts.filter(({ ms }) => ms > 0).map(({ key, color, ms }) => (
+              <span key={key} style={{ flexGrow: ms, background: color }} />
             ))}
           </div>
-          <div className="distribution-bar">
-            {Object.entries(categories).map(([key, c]) => {
-              const share = data.totalMs
-                ? data[
-                    key === "focus"
-                      ? "focusMs"
-                      : key === "rest"
-                        ? "restMs"
-                        : "neutralMs"
-                  ] / data.totalMs
-                : 0;
-              return (
-                <motion.span
-                  key={key}
-                  initial={false}
-                  style={{ flexGrow: share }}
-                >
-                  <Fill value={share ? 1 : 0} color={c.color} />
-                </motion.span>
-              );
-            })}
+          <div className="time-distribution">
+            {parts.map(({ key, color, label, ms }) => (
+              <div key={key}>
+                <span><i style={{ background: color }} />{label}</span>
+                <strong><Duration ms={ms} /></strong>
+              </div>
+            ))}
           </div>
         </Panel>
         <Score data={data} />
       </div>
       <FocusPanel />
       <Timeline data={data} />
-      <div className="content-grid">
-        <ProgramList
-          apps={data.apps}
-          icons={data.icons}
-          onCategory={onCategory}
-          totalMs={data.totalMs}
-        />
-        <JournalEditor
-          key={data.date}
-          compact
-          date={data.date}
-          entry={data.entry}
-          onSave={onSave}
-        />
-      </div>
+      <TodayPrograms key={data.date} {...{ data, onCategory, onSave, onShowAll }} />
     </>
   );
 }
@@ -358,32 +272,20 @@ function Statistics({ data, onDate, onCategory }) {
           {
             label: "Активное время",
             ms: sum("totalMs"),
-            Icon: Clock3,
-            color: "cyan",
           },
           {
             label: "Рабочее время",
             ms: sum("focusMs"),
-            Icon: Code2,
-            color: "lime",
           },
-          { label: "Отдых", ms: sum("restMs"), Icon: Coffee, color: "pink" },
           {
             label: "Фокус за неделю",
             value: sum("totalMs")
               ? Math.round((100 * sum("focusMs")) / sum("totalMs"))
               : null,
-            Icon: Target,
-            color: "violet",
           },
-        ].map(({ label, ms, value, Icon, color }) => (
-          <Panel className={"stat-tile " + color} key={label}>
-            <span>
-              {label}
-              <span className={"heading-icon " + color}>
-                <Icon size={18} />
-              </span>
-            </span>
+        ].map(({ label, ms, value }) => (
+          <Panel className="stat-tile" key={label}>
+            <h2>{label}</h2>
             <strong>
               {ms !== undefined ? (
                 <Duration ms={ms} />
@@ -396,19 +298,7 @@ function Statistics({ data, onDate, onCategory }) {
           </Panel>
         ))}
       </div>
-      <Suspense
-        fallback={
-          <Panel className="week-panel">
-            <div className="skeleton-loader chart-skeleton">
-              <i />
-              <i />
-              <i />
-            </div>
-          </Panel>
-        }
-      >
-        <WeekChart week={data.week} onDate={onDate} />
-      </Suspense>
+      <WeekChart week={data.week} onDate={onDate} />
       <ProgramList
         apps={data.weekApps}
         icons={data.icons}
@@ -421,43 +311,33 @@ function Statistics({ data, onDate, onCategory }) {
   );
 }
 function Programs({ data, onCategory }) {
-  const times = Object.fromEntries(data.apps.map((a) => [a.id, a.ms]));
+  const used = new Map(data.apps.map((app) => [app.id, app]));
   const apps = Object.entries(data.catalog)
     .map(([id, a]) => ({
       id,
       ...a,
-      ms: times[id] || 0,
-      sites: data.apps.find((x) => x.id === id)?.sites || [],
+      ms: used.get(id)?.ms || 0,
+      sites: used.get(id)?.sites || [],
     }))
-    .sort((a, b) => b.ms - a.ms || a.name.localeCompare(b.name));
+    .sort((a, b) => b.ms - a.ms || a.name.localeCompare(b.name, "ru"));
   return (
-    <>
-      <div className="programs-intro">
-        <span className="heading-icon cyan">
-          <Layers3 />
-        </span>
-        <p>
-          Выбирай категории под свои задачи. Рейтинг фокуса пересчитается и за
-          предыдущие дни.
-        </p>
-      </div>
-      <ProgramList
-        apps={apps}
-        icons={data.icons}
-        onCategory={onCategory}
-        totalMs={data.totalMs}
-        all
-        title="Все программы"
-      />
-    </>
+    <ProgramList
+      apps={apps}
+      icons={data.icons}
+      onCategory={onCategory}
+      totalMs={data.totalMs}
+      all
+      title="Все программы"
+      showTitle={false}
+    />
   );
 }
 const nav = [
-  ["today", "Сегодня", Home, "lime"],
-  ["stats", "Статистика", ChartNoAxesCombined, "violet"],
-  ["journal", "Дневник", CalendarDays, "pink"],
-  ["programs", "Программы", Layers3, "cyan"],
-  ["settings", "Настройки", Settings2, "yellow"],
+  ["today", "Сегодня", Home],
+  ["stats", "Статистика", ChartNoAxesCombined],
+  ["journal", "Дневник", CalendarDays],
+  ["programs", "Программы", Layers3],
+  ["settings", "Настройки", Settings2],
 ];
 export default function App() {
   const { active, visible } = useMotion();
@@ -474,7 +354,15 @@ export default function App() {
     dateRef = useRef(date),
     requestId = useRef(0),
     iconCache = useRef({ revision: -1, icons: {} });
-  dateRef.current = date;
+  const selectDate = useCallback((next) => {
+    if (next === dateRef.current) return;
+    dateRef.current = next;
+    setDate(next);
+  }, []);
+  const openDay = useCallback((next) => {
+    selectDate(next);
+    setPage("today");
+  }, [selectDate]);
   const refresh = async () => {
     if (!api) return;
     const id = ++requestId.current,
@@ -488,12 +376,12 @@ export default function App() {
         setData(next);
         setError("");
         if (todayRef.current !== next.today) {
-          if (requested === todayRef.current) setDate(next.today);
+          if (requested === todayRef.current) selectDate(next.today);
           todayRef.current = next.today;
         }
       }
     } catch {
-      if (id === requestId.current)
+      if (id === requestId.current && requested === dateRef.current)
         setError("Не удалось прочитать данные. Перезапусти Dayline.");
     }
   };
@@ -561,24 +449,21 @@ export default function App() {
   const selected = nav.find((n) => n[0] === page),
     title =
       page === "today"
-        ? date === data.today
+        ? data.date === data.today
           ? "Сегодня"
-          : pretty(date)
+          : pretty(data.date)
         : selected[1];
   const content =
     page === "today" ? (
-      <Today data={data} onCategory={category} onSave={save} />
+      <Today data={data} onCategory={category} onSave={save} onShowAll={() => go("programs")} />
     ) : page === "stats" ? (
       <Statistics
         data={data}
         onCategory={category}
-        onDate={(d) => {
-          setDate(d);
-          go("today");
-        }}
+        onDate={openDay}
       />
     ) : page === "journal" ? (
-      <Journal data={data} onDate={setDate} onSave={save} />
+      <Journal data={data} navigationDate={date} onDate={selectDate} onSave={save} />
     ) : page === "programs" ? (
       <Programs data={data} onCategory={category} />
     ) : (
@@ -594,10 +479,7 @@ export default function App() {
     );
   return (
     <ProgramsUIProvider data={data} refresh={refresh} notify={setToast}>
-      <div
-        className={"app " + (collapsed ? "sidebar-collapsed" : "")}
-        style={{ "--route-color": `var(--${selected[3]})` }}
-      >
+      <div className={"app " + (collapsed ? "sidebar-collapsed" : "")}>
         <aside className="sidebar">
           <Brand />
           <button
@@ -615,49 +497,35 @@ export default function App() {
               <PanelLeftClose size={17} />
             )}
           </button>
-          <nav>
-            <NavigationHighlight
-              page={page}
-              collapsed={collapsed}
-              items={nav}
-            />
-            {nav.map(([key, label, Icon, color]) => (
-              <motion.button
+          <nav aria-label="Разделы">
+            {nav.map(([key, label, Icon]) => (
+              <button
                 key={key}
                 aria-label={label}
                 aria-current={page === key ? "page" : undefined}
                 title={collapsed ? label : undefined}
-                className={(page === key ? "active " : "") + color}
+                className={page === key ? "active" : undefined}
                 onClick={() => go(key)}
-                whileTap={active ? { scale: 0.96 } : undefined}
               >
                 <span className="nav-icon">
-                  <Icon size={23} strokeWidth={1.7} />
+                  <Icon size={18} strokeWidth={1.7} />
                 </span>
                 <span className="nav-label">{label}</span>
-              </motion.button>
+              </button>
             ))}
           </nav>
           <div className="sidebar-bottom">
             <div className="device">
-              <Monitor size={24} />
+              <Monitor size={18} aria-hidden="true" />
               <div>
                 <strong>Мой компьютер</strong>
-                <small>Локальное хранение</small>
+                <small>Dayline {data.version}</small>
               </div>
-              <i />
-            </div>
-            <div className="sidebar-footer">
-              <span>v{data.version}</span>
-              <ShieldCheck size={14} />
             </div>
           </div>
         </aside>
         <div className="workspace" ref={workspaceRef}>
           <header className="topbar">
-            <span className="breadcrumb">
-              Моё время <ChevronRight size={12} /> <b>{selected[1]}</b>
-            </span>
             <div className="tracking-controls">
               <span
                 className={"tracking-status " + data.status.kind}
@@ -666,7 +534,7 @@ export default function App() {
                 <i />
                 {data.status.label}
               </span>
-              <motion.button
+              <button
                 className="pause-button"
                 aria-label={
                   data.status.kind === "paused"
@@ -678,65 +546,23 @@ export default function App() {
                     .pause(data.status.kind !== "paused")
                     .catch(() => setToast("Не удалось изменить учёт"))
                 }
-                whileTap={active ? { scale: 0.97 } : undefined}
               >
-                <AnimatePresence mode="wait" initial={false}>
-                  <motion.span
-                    key={data.status.kind === "paused" ? "play" : "pause"}
-                    initial={
-                      active ? { opacity: 0, rotate: -60, scale: 0.95 } : false
-                    }
-                    animate={{ opacity: 1, rotate: 0, scale: 1 }}
-                    exit={{ opacity: 0, rotate: 60, scale: 0.95 }}
-                    transition={{ duration: active ? 0.16 : 0 }}
-                  >
-                    {data.status.kind === "paused" ? (
-                      <Play size={15} />
-                    ) : (
-                      <Pause size={15} />
-                    )}
-                  </motion.span>
-                </AnimatePresence>
-              </motion.button>
+                {data.status.kind === "paused" ? <Play size={14} /> : <Pause size={14} />}
+              </button>
             </div>
           </header>
           <main>
             <div className="page-heading">
-              <div>
-                <span className="page-date">
-                  {pretty(date, {
-                    weekday: "short",
-                    day: "numeric",
-                    month: "long",
-                    year: "numeric",
-                  })}
-                </span>
-                <motion.h1
-                  key={title}
-                  initial={active ? { opacity: 0, y: 8 } : false}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{
-                    duration: active ? 0.22 : 0,
-                    ease: [0.23, 1, 0.32, 1],
-                  }}
-                >
-                  {title}
-                  <span className="heading-period">.</span>
-                </motion.h1>
-                <p>
-                  {page === "today"
-                    ? "Всё, чему ты уделил внимание. В одном месте."
-                    : page === "stats"
-                      ? "Больше ясности о том, куда уходит время."
-                      : page === "journal"
-                        ? "Не только цифры. Твои мысли, настроение и маленькие победы."
-                        : page === "programs"
-                          ? "Каждой программе — своё место в твоём дне."
-                          : "Твой ритм. Твои настройки."}
-                </p>
-              </div>
-              {page !== "settings" && (
-                <DatePicker value={date} max={data.today} onChange={setDate} />
+              <h1>{title}</h1>
+              {page !== "settings" && page !== "journal" && (
+                <DatePicker
+                  value={data.date}
+                  navigationValue={date}
+                  max={data.today}
+                  onChange={selectDate}
+                  stepDays={page === "stats" ? 7 : 1}
+                  rangeStart={page === "stats" ? data.week[0]?.date : undefined}
+                />
               )}
             </div>
             {(error || data.storageWarning || data.status.kind === "error") && (
@@ -744,22 +570,9 @@ export default function App() {
                 {error || data.status.detail || data.storageWarning}
               </div>
             )}
-            <AnimatePresence mode="wait" initial={false}>
-              <RouteStage key={page} route={page} contentKey={data.date}>
-                {content}
-              </RouteStage>
-            </AnimatePresence>
-            <footer className="page-footer">
-              <span>
-                <span className="footer-dot" />
-                {data.current && data.status.kind === "active"
-                  ? `Сейчас: ${data.current.name}`
-                  : "Твой день в твоём темпе"}
-              </span>
-              <span>
-                Фоновое время не учитывается <span>·</span> Dayline
-              </span>
-            </footer>
+            <RouteStage key={page} route={page}>
+              {content}
+            </RouteStage>
           </main>
         </div>
         <AnimatePresence>

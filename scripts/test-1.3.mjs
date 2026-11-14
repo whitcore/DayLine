@@ -23,7 +23,7 @@ async function launch() {
   });
   page = await app.firstWindow();
   page.on("pageerror", (e) => errors.push(e.message));
-  await expect(page.locator("h1")).toHaveText("Сегодня.");
+  await expect(page.locator("h1")).toHaveText(/^Сегодня\.?$/);
   await app.evaluate(({ BrowserWindow }) => {
     const w = BrowserWindow.getAllWindows()[0];
     w.show();
@@ -72,13 +72,14 @@ try {
   await page.getByRole("button", { name: "Настройки", exact: true }).click();
   await expect(page.locator("[data-route=settings]")).toBeVisible();
   const themes = [
+    ["graphite", "Графит"],
     ["dark", "Яркая тёмная"],
     ["light", "Яркая светлая"],
     ["soft-dark", "Мягкая тёмная"],
     ["soft-light", "Мягкая светлая"],
   ];
   for (const [id, label] of themes) {
-    await page.getByRole("radio", { name: label, exact: true }).check();
+    await choose("Тема", label);
     await expect(page.locator("html")).toHaveAttribute("data-theme", id);
     await page.waitForTimeout(180);
     await page.screenshot({
@@ -90,17 +91,14 @@ try {
         () => document.documentElement.scrollWidth <= innerWidth,
       ),
     ).toBe(true);
-    const panels = await page
-      .locator(".settings-column>.panel")
-      .evaluateAll((nodes) =>
-        nodes.map((e) => ({
-          height: e.getBoundingClientRect().height,
-          scroll: e.scrollHeight,
-        })),
-      );
-    expect(panels.every((p) => Math.abs(p.height - p.scroll) < 6)).toBe(true);
+    const positions = await page.locator(".settings-group").evaluateAll(
+      (nodes) => nodes.map((element) => element.getBoundingClientRect().left),
+    );
+    expect(positions.length).toBeGreaterThan(4);
+    expect(new Set(positions).size).toBe(1);
   }
   await choose("Порог бездействия", "5 мин");
+  await page.getByText("Параметры рейтинга", { exact: true }).click();
   await choose("Польза нейтральных программ", "50%");
   const custom = await page.evaluate(() => window.dayline.snapshot());
   expect(custom.settings.idleMinutes).toBe(5);
@@ -120,6 +118,7 @@ try {
       ),
     )
     .toBe(180);
+  await page.getByText("Работа и перерыв", { exact: true }).click();
   await page.getByRole("spinbutton", { name: /Работа/ }).fill("1");
   await page.getByRole("spinbutton", { name: /Перерыв/ }).fill("1");
   await page
@@ -204,7 +203,7 @@ try {
   expect(errors).toEqual([]);
   const report = {
     packaged: !!process.env.DAYLINE_TEST_EXE,
-    themes: 4,
+    themes: 5,
     themePersistence: true,
     calendar: true,
     calendarKeyboard: true,

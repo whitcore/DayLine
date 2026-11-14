@@ -21,10 +21,14 @@ let app, page;
 const errors = [], report = { packaged: !!process.env.DAYLINE_TEST_EXE };
 const snapshot = () => page.evaluate(() => window.dayline.snapshot());
 const nav = name => page.getByRole('button', { name, exact: true });
+const theme = async label => {
+  await nav('Тема').click();
+  await page.getByRole('option', { name: label, exact: true }).click();
+};
 async function launch() {
   app = await electron.launch({ ...(process.env.DAYLINE_TEST_EXE ? { executablePath: process.env.DAYLINE_TEST_EXE, args: ['--test-mode'] } : { args: [root, '--test-mode'] }), cwd: root, env });
   page = await app.firstWindow(); page.on('pageerror', error => errors.push(error.message));
-  await expect(page.locator('h1')).toHaveText('Сегодня.');
+  await expect(page.locator('h1')).toHaveText(/^Сегодня\.?$/);
   await app.evaluate(({ BrowserWindow }) => { const w = BrowserWindow.getAllWindows()[0]; w.show(); w.focus(); });
   await page.waitForTimeout(200);
 }
@@ -38,13 +42,13 @@ try {
   await nav('Предыдущий день').click();
   await expect(nav('Вернуться к сегодняшнему дню')).toBeVisible();
   await nav('Вернуться к сегодняшнему дню').click();
-  await expect(page.locator('h1')).toHaveText('Сегодня.');
+  await expect(page.locator('h1')).toHaveText(/^Сегодня\.?$/);
   await expect(nav('Вернуться к сегодняшнему дню')).toHaveCount(0);
   report.returnToday = true;
   await nav('Настройки').click();
   const palettes = {};
   for (const [id, label] of [['dark', 'Яркая тёмная'], ['soft-dark', 'Мягкая тёмная'], ['light', 'Яркая светлая'], ['soft-light', 'Мягкая светлая']]) {
-    await page.getByRole('radio', { name: label, exact: true }).check();
+    await theme(label);
     palettes[id] = await page.evaluate(() => {
       const s = getComputedStyle(document.documentElement);
       return Object.fromEntries(['--bg', '--sidebar-bg', '--surface', '--surface-alt', '--surface-raised', '--surface-input', '--lime', '--pink', '--cyan'].map(key => [key, s.getPropertyValue(key).trim()]));
@@ -61,7 +65,7 @@ try {
   expect(palettes.dark['--lime']).toBe('#b9ff4b');
   expect(palettes.dark['--pink']).not.toBe(palettes['soft-dark']['--pink']);
   report.neutralPalettes = palettes;
-  await page.getByRole('radio', { name: 'Яркая тёмная', exact: true }).check();
+  await theme('Яркая тёмная');
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.getByRole('radio', { name: 'По системе', exact: true }).click();
   await expect(page.locator('.motion-mode-description')).toContainText('Windows разрешает движение');

@@ -116,7 +116,6 @@ export function MotionProvider({ children }) {
         visible,
         reveal,
         inputMethod,
-        replay: () => setReveal((n) => n + 1),
       }}
     >
       <MotionConfig
@@ -133,33 +132,6 @@ export function MotionProvider({ children }) {
   );
 }
 export const useMotion = () => useContext(Context);
-export function NavigationHighlight({ page, collapsed, items }) {
-  const ref = useRef(null),
-    first = useRef(true),
-    { active } = useMotion();
-  useLayoutEffect(() => {
-    const el = ref.current,
-      nav = el.parentElement,
-      target = nav.querySelector('[aria-current="page"]');
-    if (!target) return;
-    el.style.transition =
-      first.current || !active
-        ? "none"
-        : `clip-path 240ms cubic-bezier(0.77,0,0.175,1)`;
-    el.style.clipPath = `inset(${target.offsetTop}px 0 ${Math.max(0, nav.clientHeight - target.offsetTop - target.offsetHeight)}px 0 round 15px)`;
-    first.current = false;
-  }, [page, collapsed, active]);
-  return (
-    <span ref={ref} className="nav-highlight" aria-hidden="true">
-      {items.map(([key, label, Icon]) => (
-        <span key={key} className="nav-highlight-row">
-          <Icon size={23} strokeWidth={1.7} />
-          <span className="nav-highlight-label">{label}</span>
-        </span>
-      ))}
-    </span>
-  );
-}
 export function useSidebarTransition(collapsed) {
   const ref = useRef(null),
     previous = useRef(null),
@@ -193,26 +165,8 @@ export const Number = memo(function Number({
   suffix = "",
   className = "",
 }) {
-  const { active } = useMotion();
-  const ref = useRef(null),
-    previous = useRef(value);
-  useLayoutEffect(() => {
-    if (previous.current !== value && active) {
-      const animation = ref.current.animate(
-        [
-          { opacity: 0.55, transform: "translateY(2px)" },
-          { opacity: 1, transform: "translateY(0)" },
-        ],
-        { duration: 140, easing: cssEaseOut },
-      );
-      previous.current = value;
-      return () => animation.cancel();
-    }
-    previous.current = value;
-  }, [value, active]);
   return (
     <span
-      ref={ref}
       className={"animated-number " + className}
       style={{ fontVariantNumeric: "tabular-nums" }}
     >
@@ -259,66 +213,38 @@ export function Panel({ children, className = "", style, ...props }) {
     </motion.section>
   );
 }
-export function RouteStage({ route, contentKey, children }) {
-  const { active, enabled, effective, visible, reveal, inputMethod } =
+export function RouteStage({ route, children }) {
+  const { effective, visible, reveal, canFade, inputMethod } =
     useMotion();
   const ref = useRef(null);
+  const lastEntrance = useRef(null);
   useLayoutEffect(() => {
-    if (!visible || !enabled || inputMethod.current === "keyboard") return;
-    const el = ref.current,
-      reduced = effective === "reduced";
-    const animations = [];
-    animations.push(
-      el.animate([{ opacity: reduced ? 0.65 : 0.35 }, { opacity: 1 }], {
-        duration: reduced ? 120 : 200,
-        easing: cssEaseOut,
-      }),
-    );
-    if (!reduced)
-      for (const [i, panel] of [...el.querySelectorAll(".panel")].entries())
-        animations.push(
-          panel.animate(
-            [
-              { opacity: 0, transform: "translateY(14px) scale(0.99)" },
-              { opacity: 1, transform: "translateY(0) scale(1)" },
-            ],
-            {
-              duration: 220,
-              delay: Math.min(i * 35, 70),
-              easing: cssEaseOut,
-              fill: "backwards",
-            },
-          ),
-        );
-    return () => animations.forEach((animation) => animation.cancel());
-    // Input changes do not replay a page. Only navigation, showing the window,
-    // an explicit preview, or a loaded date may start this entrance.
-  }, [visible, reveal, route, contentKey, effective, enabled]);
+    if (!visible) return;
+    const entrance = `${route}:${reveal}`;
+    if (entrance === lastEntrance.current) return;
+    lastEntrance.current = entrance;
+    if (!canFade || inputMethod.current === "keyboard") return;
+    const animation = ref.current.animate([{ opacity: 0.35 }, { opacity: 1 }], {
+      duration: effective === "reduced" ? 120 : 140,
+      easing: cssEaseOut,
+    });
+    return () => animation.cancel();
+  }, [visible, reveal, route, effective, canFade, inputMethod]);
   return (
-    <motion.div
+    <div
       ref={ref}
       className="route-stage"
       data-route={route}
-      initial={false}
-      exit={{
-        opacity: 0,
-        transform: active ? "translateY(-6px)" : "none",
-        transition: { duration: active ? 0.08 : 0, ease: easeOut },
-      }}
     >
       {children}
-    </motion.div>
+    </div>
   );
 }
 export function Fill({ value, color, className = "" }) {
-  const { active } = useMotion();
   return (
-    <motion.i
+    <i
       className={"animated-fill " + className}
-      style={{ background: color, transformOrigin: "left" }}
-      initial={active ? { scaleX: 0 } : false}
-      animate={{ scaleX: Math.max(0, Math.min(1, value)) }}
-      transition={{ duration: active ? 0.24 : 0, ease: easeOut }}
+      style={{ background: color, transformOrigin: "left", transform: `scaleX(${Math.max(0, Math.min(1, value))})` }}
     />
   );
 }

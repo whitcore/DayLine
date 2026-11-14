@@ -30,6 +30,10 @@ const monthFormat = new Intl.DateTimeFormat("ru-RU", {
   month: "long",
   year: "numeric",
 });
+const rangeFormat = new Intl.DateTimeFormat("ru-RU", {
+  day: "numeric",
+  month: "long",
+});
 const shortDateFormat = new Intl.DateTimeFormat("ru-RU", {
   day: "numeric",
   month: "short",
@@ -95,11 +99,37 @@ function motionMode({ active, canFade }, keyboardOpen) {
   return keyboardOpen ? "none" : active ? "full" : canFade ? "fade" : "none";
 }
 
-export default function DatePicker({ value, onChange, max }) {
+export default function DatePicker({
+  value,
+  navigationValue = value,
+  onChange,
+  max,
+  stepDays = 1,
+  rangeStart,
+  monthNavigation = false,
+}) {
   const today = dateKey(new Date());
   const limit = parseDate(max) ? (max < today ? max : today) : today;
   const selected = clampDate(parseDate(value) || parseDate(today), limit);
   const selectedKey = dateKey(selected);
+  const navigationDate = clampDate(parseDate(navigationValue) || selected, limit);
+  const navigationKey = dateKey(navigationDate);
+  const rangeDate = parseDate(rangeStart);
+  const dateLabel = rangeDate
+    ? (rangeDate.getFullYear() === selected.getFullYear() ? rangeFormat : dateFormat)
+      .formatRange(rangeDate, selected)
+    : (monthNavigation ? monthFormat : dateFormat).format(selected).replace(/ г\.$/, "");
+  const stepLabels = monthNavigation
+    ? ["Предыдущий месяц", "Следующий месяц"]
+    : stepDays === 7
+      ? ["Предыдущая неделя", "Следующая неделя"]
+      : ["Предыдущий день", "Следующий день"];
+  const step = (direction) => {
+    const next = monthNavigation
+      ? addMonths(navigationDate, direction)
+      : addDays(navigationDate, direction * stepDays);
+    choose(clampDate(next, limit));
+  };
   const [open, setOpen] = useState(false);
   const [month, setMonth] = useState(() => monthStart(selected));
   const [focused, setFocused] = useState(selectedKey);
@@ -126,7 +156,7 @@ export default function DatePicker({ value, onChange, max }) {
   const choose = (date) => {
     const key = dateKey(date);
     if (key < MIN_DATE || key > limit) return;
-    if (key !== value) onChange(key);
+    if (key !== navigationKey) onChange(key);
     setOpen(false);
   };
   const focusDate = (date) => {
@@ -179,7 +209,7 @@ export default function DatePicker({ value, onChange, max }) {
 
   return (
     <div className="day-date-controls">
-      {selectedKey !== today && today <= limit && (
+      {navigationKey !== today && today <= limit && (
         <button type="button" className="day-date-return quiet-button control-press"
           aria-label="Вернуться к сегодняшнему дню"
           data-motion={motionMode(motion, false)}
@@ -191,10 +221,10 @@ export default function DatePicker({ value, onChange, max }) {
       <button
         type="button"
         className="day-date-step control-press"
-        aria-label="Предыдущий день"
-        title="Предыдущий день"
-        disabled={selectedKey === MIN_DATE}
-        onClick={() => choose(addDays(selected, -1))}
+        aria-label={stepLabels[0]}
+        title={stepLabels[0]}
+        disabled={(monthNavigation ? dateKey(monthStart(navigationDate)) : navigationKey) === MIN_DATE}
+        onClick={() => step(-1)}
       >
         <ChevronLeft size={16} aria-hidden="true" />
       </button>
@@ -218,7 +248,7 @@ export default function DatePicker({ value, onChange, max }) {
           >
             <CalendarDays size={16} aria-hidden="true" />
             <span id={`${id}-value`}>
-              {dateFormat.format(selected).replace(/ г\.$/, "")}
+              {dateLabel}
             </span>
             <ChevronDown
               size={13}
@@ -338,10 +368,10 @@ export default function DatePicker({ value, onChange, max }) {
       <button
         type="button"
         className="day-date-step control-press"
-        aria-label="Следующий день"
-        title="Следующий день"
-        disabled={selectedKey >= limit}
-        onClick={() => choose(addDays(selected, 1))}
+        aria-label={stepLabels[1]}
+        title={stepLabels[1]}
+        disabled={monthNavigation ? navigationKey.slice(0, 7) >= limit.slice(0, 7) : navigationKey >= limit}
+        onClick={() => step(1)}
       >
         <ChevronRight size={16} aria-hidden="true" />
       </button>

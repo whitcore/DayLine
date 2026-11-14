@@ -8,6 +8,7 @@ import "./theme.css";
 import "./programs.css";
 import "./motion-polish.css";
 import "./themes.css";
+import "./layout.css";
 createRoot(document.getElementById("root")).render(
   <ThemeProvider>
     <MotionProvider>

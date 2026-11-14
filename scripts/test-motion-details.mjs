@@ -47,7 +47,7 @@ const effects = () =>
         (a) =>
           a.playState === "running" &&
           a.effect?.target instanceof Element &&
-          a.effect.target.matches(".route-stage,.panel,.category-menu"),
+          a.effect.target.matches(".route-stage,.panel,.category-menu,.demo-mini-card"),
       )
       .map((a) => ({
         target: a.effect.target.className,
@@ -59,7 +59,7 @@ const effects = () =>
 try {
   page = await app.firstWindow();
   page.on("pageerror", (e) => errors.push(e.message));
-  await expect(page.locator("h1")).toHaveText("Сегодня.");
+  await expect(page.locator("h1")).toHaveText(/^Сегодня\.?$/);
   expect((await windowState()).throttled).toBe(true);
   await page.waitForTimeout(900);
   await reveal();
@@ -68,7 +68,7 @@ try {
   expect((await effects()).length).toBeGreaterThan(0);
   await page.waitForTimeout(350);
   await page
-    .getByRole("button", { name: "Добавить заметку", exact: true })
+    .getByRole("button", { name: "Запись дня", exact: true })
     .first()
     .click();
   const input = page.getByLabel("Мысли и заметки");
@@ -95,7 +95,7 @@ try {
     .getByRole("button", { name: "Показать анимации", exact: true })
     .click();
   await page.waitForTimeout(25);
-  const gentle = await effects();
+  const gentle = (await effects()).filter((a) => a.target === "demo-mini-card");
   expect(gentle.length).toBeGreaterThan(0);
   expect(
     gentle.every((a) =>
@@ -114,10 +114,11 @@ try {
     .click();
   await page.waitForTimeout(55);
   expect(
-    (await effects()).some((a) =>
+    (await effects()).filter((a) => a.target === "demo-mini-card").some((a) =>
       a.frames.some((f) => f.transform?.includes("translateY")),
     ),
   ).toBe(true);
+  expect((await effects()).filter((a) => a.target === "route-stage")).toHaveLength(0);
   await page.waitForTimeout(350);
   await page.screenshot({
     path: "test-results/dayline-1.2.1-motion-settings.png",

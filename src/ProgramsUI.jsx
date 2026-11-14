@@ -1,4 +1,12 @@
-import { createContext, useContext, useState, useEffect, useRef } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import * as Popover from "@radix-ui/react-popover";
 import { useIsPresent } from "motion/react";
 import {
@@ -11,24 +19,25 @@ import {
   Trash2,
   RotateCcw,
   ImagePlus,
-  Layers3,
   Code2,
   Gamepad2,
   Monitor,
   Globe,
-  ShieldCheck,
   Search,
   EyeOff,
   ArrowUpRight,
+  ArrowRight,
+  Tag,
 } from "lucide-react";
 import {
   motion,
   AnimatePresence,
   Panel,
-  Fill,
   Duration,
   useMotion,
 } from "./motion.jsx";
+import { ChoiceSelect } from "./DatePicker.jsx";
+import { cssEaseOut, easeOut } from "./motion-policy.js";
 import { categories } from "./shared.js";
 const Context = createContext(null);
 const api = window.dayline;
@@ -188,23 +197,34 @@ function Modal({ title, onClose, children }) {
 }
 function MenuSurface({ children, ...props }) {
   const present = useIsPresent();
-  return <motion.div {...props} aria-hidden={present ? undefined : true} inert={present ? undefined : true}>
-    {children}
-  </motion.div>;
+  return (
+    <motion.div {...props} aria-hidden={!present || undefined} inert={!present || undefined}>
+      {children}
+    </motion.div>
+  );
 }
+const menuMotion = ({ effective, inputMethod }) => {
+  const mode = inputMethod.current === "keyboard" ? "off" : effective;
+  return {
+    opacity: 0,
+    ...(mode === "on" && { transform: "translateY(-3px)" }),
+    transition: { duration: mode === "on" ? 0.16 : mode === "reduced" ? 0.12 : 0, ease: easeOut },
+  };
+};
 function Menu({ trigger, children, label }) {
   const [open, setOpen] = useState(false),
-    { active, canFade } = useMotion(),
+    motionPolicy = useMotion(),
     ref = useRef(null);
+  const approach = menuMotion(motionPolicy);
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild>{trigger}</Popover.Trigger>
-      <AnimatePresence>
+      <AnimatePresence custom={motionPolicy}>
         {open && (
           <Popover.Portal forceMount>
             <Popover.Content
               asChild
-              sideOffset={8}
+              sideOffset={5}
               align="end"
               collisionPadding={16}
               onOpenAutoFocus={(e) => {
@@ -217,26 +237,12 @@ function Menu({ trigger, children, label }) {
                 className="category-menu"
                 aria-label={label}
                 role="menu"
-                initial={
-                  canFade
-                    ? {
-                        opacity: 0,
-                        y: active ? -6 : 0,
-                        scale: active ? 0.96 : 1,
-                      }
-                    : false
-                }
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{
-                  opacity: 0,
-                  y: active ? -3 : 0,
-                  scale: active ? 0.98 : 1,
-                  transition: { duration: canFade ? 0.1 : 0 },
-                }}
-                transition={{
-                  duration: canFade ? (active ? 0.18 : 0.12) : 0,
-                  ease: [0.23, 1, 0.32, 1],
-                }}
+                custom={motionPolicy}
+                variants={{ closed: menuMotion }}
+                initial={approach.transition.duration ? "closed" : false}
+                animate={{ opacity: 1, ...(approach.transform && { transform: "translateY(0px)" }) }}
+                exit="closed"
+                transition={approach.transition}
                 onKeyDown={(e) => {
                   if (["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) {
                     e.preventDefault();
@@ -272,7 +278,11 @@ function CategorySelect({ app }) {
   const { types, run, setModal } = useContext(Context),
     parts = Object.entries(allocation(app)),
     mix = parts.length > 1,
-    first = types[parts[0][0]] || categories.neutral;
+    first = types[parts[0][0]] || categories.neutral,
+    label = mix ? "Смешанная" : first.label,
+    hint = mix
+      ? parts.map(([id, share]) => `${types[id]?.label || id} ${share}%`).join(" · ")
+      : label;
   return (
     <Menu
       label="Выбери вид"
@@ -280,7 +290,8 @@ function CategorySelect({ app }) {
         <button
           className={"category-trigger " + (mix ? "is-mixed" : "")}
           aria-label={"Категория: " + app.id}
-          style={{ "--cat": typeColor(types, parts[0][0]) }}
+          aria-description={hint}
+          title={hint}
         >
           <span
             className="type-dot"
@@ -306,14 +317,13 @@ function CategorySelect({ app }) {
                 : typeColor(types, parts[0][0]),
             }}
           />
-          <span>{mix ? "Смешанный" : first.label}</span>
+          <span>{label}</span>
           <ChevronDown size={13} />
         </button>
       }
     >
       {(close) => (
         <>
-          <div className="menu-label">ВИД ПРОГРАММЫ</div>
           <div className="menu-type-list">
             {Object.entries(types).map(([id, t]) => (
               <button
@@ -331,6 +341,7 @@ function CategorySelect({ app }) {
               </button>
             ))}
           </div>
+          {mix && <p className="category-split">{hint}</p>}
           <div className="menu-divider" />
           <button
             role="menuitem"
@@ -668,21 +679,25 @@ function SiteCategory({ domain, app }) {
       .map(([id, type]) => [id, type.label]),
   ];
   const label = options.find(([id]) => id === current)?.[1] || `Как у ${app.name}`;
+  const color = current === studyId && !types[studyId]
+    ? "var(--violet)"
+    : typeColor(types, current);
   return (
     <Menu
       label={`Категория сайта ${domain}`}
       trigger={
-        <button className="site-category" aria-label={`Категория сайта: ${domain}`} title={label}>
-          <span>{label}</span><ChevronDown size={12} />
+        <button className="category-trigger site-category" aria-label={`Категория сайта: ${domain}`} aria-description={label} title={label}>
+          <i className="type-dot" style={{ background: color }} />
+          <span>{label}</span><ChevronDown size={13} />
         </button>
       }
     >
       {(close) => <>
-        <div className="menu-label">КАТЕГОРИЯ САЙТА</div>
         <div className="menu-type-list">
           {options.map(([id, label]) => (
             <button key={id} role="menuitemradio" aria-checked={current === id}
               onClick={() => { close(); run(() => api.siteCategory(domain, id)); }}>
+              <i className="type-dot" style={{ background: id === studyId && !types[id] ? "var(--violet)" : typeColor(types, id) }} />
               <span>{label}</span>{current === id && <Check size={15} />}
             </button>
           ))}
@@ -697,289 +712,341 @@ function SiteCategory({ domain, app }) {
     </Menu>
   );
 }
-function Sites({ app }) {
-  const { data } = useContext(Context),
-    { active, canFade } = useMotion(),
-    [more, setMore] = useState(false),
-    sites = app.sites || [];
+function Sites({ app, id, groupRef, closing, editing }) {
+  const { data } = useContext(Context);
+  const [more, setMore] = useState(false);
+  const sites = app.sites || [];
   return (
-    <div className="sites-detail">
-      <div className="sites-heading">
-        <span>
-          Сайты <small>{sites.length}</small>
-        </span>
-        <small>Категория</small>
-      </div>
+    <div
+      className="sites-collapse"
+      id={id}
+      ref={groupRef}
+      role="presentation"
+      data-closing={closing || undefined}
+      aria-hidden={closing || undefined}
+      inert={closing || undefined}
+    >
       {sites.length ? (
-        sites.slice(0, more ? undefined : 8).map((s, i) => (
-          <motion.div
-            className="site-row"
-            key={s.domain}
-            initial={canFade ? { opacity: 0, x: active ? -6 : 0 } : false}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: canFade ? 0.16 : 0, delay: active ? Math.min(i * 0.02, 0.1) : 0 }}
-          >
-            <span className="site-mark">
-              <Globe size={17} strokeWidth={1.5} aria-hidden="true" />
-            </span>
-            <div>
-              <strong title={s.domain}>{s.domain.replace(/^www\./, "")}</strong>
-              <div className="site-track">
-                <Fill value={app.ms ? s.ms / app.ms : 0} color="var(--muted)" />
-              </div>
+        sites.slice(0, more ? undefined : 8).map((site) => (
+          <div className="site-row program-columns" role="row" key={site.domain}>
+            <div className="site-name" role="rowheader">
+              <span className="site-mark" aria-hidden="true"><Globe size={18} strokeWidth={1.6} /></span>
+              <strong title={site.domain}>{site.domain.replace(/^www\./, "")}</strong>
             </div>
-            <SiteCategory domain={s.domain} app={app} />
-            <Duration ms={s.ms} />
-          </motion.div>
+            <div className="program-category" role="cell">
+              <SiteCategory domain={site.domain} app={app} />
+            </div>
+            <div className={"program-time" + (editing ? " time-with-action" : "")} role="cell">
+              <Duration ms={site.ms} />
+            </div>
+          </div>
         ))
       ) : (
-        <div className="sites-empty">
-          <Globe size={23} />
-          <p>
+        <div className="sites-empty" role="row">
+          <div role="cell">
             {data.browserStatus === "disabled"
               ? "Учёт сайтов выключен в настройках."
               : "Сайты появятся после использования Firefox."}
-          </p>
+          </div>
         </div>
       )}
       {sites.length > 8 && (
-        <button className="text-button" onClick={() => setMore((x) => !x)}>
-          {more ? "Свернуть" : "Все сайты (" + sites.length + ")"}
-        </button>
+        <div className="sites-more" role="row">
+          <div role="cell">
+            <button className="text-button" onClick={() => setMore((x) => !x)}>
+              {more ? "Свернуть" : "Все сайты (" + sites.length + ")"}
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
 }
+
+const clippedSites = "inset(0 0 100% 0)";
+const revealedSites = "inset(0 0 0% 0)";
+
+function useSitesDisclosure() {
+  const [state, setState] = useState("closed");
+  const id = useId();
+  const groupRef = useRef(null);
+  const pending = useRef(null);
+  const running = useRef([]);
+  const { effective, canFade, inputMethod } = useMotion();
+  const cancel = () => {
+    for (const animation of running.current) animation.cancel();
+    running.current = [];
+  };
+
+  useLayoutEffect(() => {
+    const change = pending.current;
+    pending.current = null;
+    const group = groupRef.current;
+    if (!change || !group) return;
+
+    // Read every final position before writing animation effects to the rows.
+    const offsets = change.rows.map(({ element, top }) => ({
+      element,
+      dy: top - element.getBoundingClientRect().top,
+    }));
+    const open = state === "open";
+    const options = {
+      duration: change.full ? 180 : 120,
+      easing: cssEaseOut,
+    };
+    const frames = [{ opacity: change.opacity }, { opacity: open ? 1 : 0 }];
+    if (change.full) {
+      frames[0].clipPath = change.clipPath;
+      frames[1].clipPath = open ? revealedSites : clippedSites;
+    }
+    const groupAnimation = group.animate(frames, { ...options, fill: "both" });
+    const rowAnimations = offsets
+      .filter(({ dy }) => Math.abs(dy) >= 0.5)
+      .map(({ element, dy }) => element.animate(
+        [{ transform: "translateY(" + dy + "px)" }, { transform: "translateY(0)" }],
+        options,
+      ));
+    running.current = [groupAnimation, ...rowAnimations];
+    groupAnimation.onfinish = () => {
+      if (running.current[0] !== groupAnimation) return;
+      if (!open) setState("closed");
+      cancel();
+    };
+  }, [state]);
+
+  useLayoutEffect(() => {
+    if (!canFade) {
+      cancel();
+      setState((current) => current === "closing" ? "closed" : current);
+    }
+  }, [canFade]);
+
+  useLayoutEffect(() => cancel, []);
+
+  function toggle(event) {
+    const open = state !== "open";
+    const mode = inputMethod.current === "keyboard" || event.detail === 0
+      ? "off"
+      : effective;
+    const full = mode === "on";
+    if (mode !== "off") {
+      const group = groupRef.current;
+      const style = group ? getComputedStyle(group) : null;
+      const rows = [];
+      if (full) {
+        const removedHeight = !open && group ? group.offsetHeight : 0;
+        // A close can also bring a row just below the viewport into view.
+        let element = event.currentTarget.closest(".program-item")?.nextElementSibling;
+        while (element) {
+          const { top, bottom } = element.getBoundingClientRect();
+          if (top - removedHeight >= window.innerHeight) break;
+          if (bottom > 0) rows.push({ element, top });
+          element = element.nextElementSibling;
+        }
+      }
+      pending.current = {
+        full,
+        rows,
+        opacity: style?.opacity ?? 0,
+        clipPath: style && style.clipPath !== "none"
+          ? style.clipPath
+          : group ? revealedSites : clippedSites,
+      };
+    }
+    cancel();
+    if (open) setState("open");
+    else setState(mode === "off" ? "closed" : "closing");
+  }
+
+  return { id, groupRef, state, toggle };
+}
+
 export default function ProgramList({
   apps,
   icons,
-  totalMs,
   all = false,
   title = "Программы",
+  showTitle = true,
+  limit,
+  onShowAll,
+  headingAction,
 }) {
-  const { data, types, setModal } = useContext(Context),
-    { active } = useMotion(),
-    [search, setSearch] = useState(""),
-    [filter, setFilter] = useState("all"),
-    [short, setShort] = useState(false),
-    [editing, setEditing] = useState(false),
-    [expanded, setExpanded] = useState({});
-  const list = apps.filter(
-      (a) =>
-        !a.hidden &&
-        (short || data.settings.hideShort === false || a.ms >= 60000),
-    ),
-    shortCount = apps.filter((a) => !a.hidden && a.ms < 60000).length;
-  const visible = list.filter(
-    (a) =>
-      a.name.toLowerCase().includes(search.toLowerCase()) &&
-      (filter === "all" || allocation(a)[filter]),
+  const { data, types, setModal } = useContext(Context);
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState("all");
+  const [short, setShort] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const sites = useSitesDisclosure();
+  const category = types[filter] ? filter : "all";
+  const query = search.trim().toLocaleLowerCase("ru-RU");
+  const listed = apps.filter((app) => !app.hidden);
+  const shortCount = listed.filter((app) => app.ms < 60000).length;
+  const visible = listed.filter((app) =>
+    (short || data.settings.hideShort === false || app.ms >= 60000) &&
+    app.name.toLocaleLowerCase("ru-RU").includes(query) &&
+    (category === "all" || allocation(app)[category]),
+  ).sort((a, b) => b.ms - a.ms || a.name.localeCompare(b.name, "ru"));
+  const shown = limit === undefined ? visible : visible.slice(0, limit);
+  const hideShort = shortCount > 0 && data.settings.hideShort !== false;
+  const actions = (
+    <div className="program-actions">
+      <button
+        className="program-action"
+        aria-label="Редактировать список программ"
+        aria-pressed={editing}
+        onClick={() => setEditing((value) => !value)}
+      >
+        {editing ? <Check size={15} /> : <Pencil size={15} />}
+        <span>{editing ? "Готово" : "Редактировать список"}</span>
+      </button>
+      <button
+        className="program-action"
+        aria-label="Виды программ"
+        onClick={() => setModal({ kind: "types" })}
+      >
+        <Tag size={15} />
+        <span>Категории</span>
+      </button>
+    </div>
   );
   return (
-    <Panel className={"programs " + (all ? "all-programs" : "")}>
-      <div className="section-heading">
-        <div>
-          <h2>
-            <span className="heading-icon violet">
-              <Layers3 />
-            </span>
-            {title}
-            <span className="count">{list.length}</span>
-          </h2>
-          <p>Только время активного окна</p>
+    <Panel className={"programs " + (all ? "all-programs" : "programs-compact")}>
+      {(showTitle || headingAction) && (
+        <div className="program-heading">
+          {showTitle && <h2>{title}</h2>}
+          {headingAction}
         </div>
-        <div className="program-actions">
-          <button
-            className="icon-button"
-            aria-label="Виды программ"
-            title="Свои виды"
-            onClick={() => setModal({ kind: "types" })}
-          >
-            <Plus size={18} />
-          </button>
-          <button
-            className={"icon-button " + (editing ? "editing" : "")}
-            aria-label="Редактировать список программ"
-            title="Иконки и удаление из списка"
-            aria-pressed={editing}
-            onClick={() => setEditing((x) => !x)}
-          >
-            {editing ? <Check size={17} /> : <Pencil size={16} />}
-          </button>
-        </div>
-      </div>
+      )}
       {all && (
-        <>
-          <label className="search program-search">
-            <Search size={16} />
-            <input
-              aria-label="Поиск программы"
-              placeholder="Найти программу"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+        <div className="program-toolbar">
+          <div className="program-query">
+            <label className="search program-search">
+              <Search size={16} aria-hidden="true" />
+              <input
+                aria-label="Поиск программы"
+                placeholder="Найти программу"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+            </label>
+            <ChoiceSelect
+              label="Категории программ"
+              value={category}
+              options={[
+                { value: "all", label: "Все категории" },
+                ...Object.entries(types).map(([value, type]) => ({ value, label: type.label })),
+              ]}
+              onChange={setFilter}
             />
-          </label>
-          <div
-            className="program-filters"
-            role="group"
-            aria-label="Категории программ"
-          >
-            {[["all", { label: "Все" }], ...Object.entries(types)].map(
-              ([id, t]) => (
-                <button
-                  key={id}
-                  aria-pressed={filter === id}
-                  onClick={() => setFilter(id)}
-                  className={filter === id ? "selected" : ""}
-                >
-                  {filter === id && (
-                    <motion.span
-                      className="filter-pill"
-                      transition={{ duration: active ? 0.22 : 0 }}
-                    />
-                  )}
-                  <span>{t.label}</span>
-                </button>
-              ),
-            )}
           </div>
-        </>
+          {actions}
+        </div>
       )}
       {editing && (
         <div className="edit-hint">
-          <ImagePlus size={15} />
-          <span>
-            Нажми на иконку, чтобы заменить её. Корзина уберёт программу из
-            списка.
-          </span>
-          <button onClick={() => setModal({ kind: "hidden" })}>Скрытые</button>
+          <ImagePlus size={15} aria-hidden="true" />
+          <span>Нажми на иконку, чтобы заменить её. Корзина уберёт программу из списка.</span>
         </div>
       )}
-      <motion.div
-        className={"program-rows " + (all ? "scroll-fade" : "")}
-        layoutScroll
-      >
-        <AnimatePresence initial={false} mode="popLayout">
-          {visible.map((a, i) => {
-            const parts = Object.entries(allocation(a)),
-              color = typeColor(types, parts[0][0]),
-              firefox = a.id.toLowerCase() === "firefox.exe";
-            return (
-              <motion.div
-                key={a.id}
-                className="program-item"
-                layout={false}
-                initial={active ? { opacity: 0, y: 12 } : false}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.97 }}
-                transition={{
-                  duration: active ? 0.22 : 0,
-                  delay: Math.min(i * 0.02, 0.15),
-                }}
-              >
-                <div className="program-row" data-app-id={a.id}>
-                  <AppIcon item={a} icons={icons} editing={editing} />
-                  <div className="program-info">
-                    <div className="program-name-line">
+      {shown.length > 0 ? (
+        <div className="program-table" role="table" aria-label={title}>
+          <div className="program-columns program-table-head" role="row">
+            <span role="columnheader">Программа</span>
+            <span role="columnheader">Категория</span>
+            <span className={"program-time" + (editing ? " time-with-action" : "")} role="columnheader">Время</span>
+          </div>
+          <div className="program-rows" role="rowgroup">
+            {shown.map((app) => {
+              const firefox = app.id.toLowerCase() === "firefox.exe";
+              const open = firefox && sites.state === "open";
+              const renderSites = firefox && sites.state !== "closed";
+              return (
+                <div className="program-item" key={app.id} role="presentation">
+                  <div
+                    className="program-row program-columns"
+                    role="row"
+                    data-app-id={app.id}
+                    data-expanded={open || undefined}
+                  >
+                    <div className="program-name" role="rowheader">
+                      <AppIcon item={app} icons={icons} editing={editing} />
                       {firefox ? (
                         <button
                           className="browser-expand"
                           aria-label="Сайты Firefox"
-                          aria-expanded={!!expanded[a.id]}
-                          onClick={() =>
-                            setExpanded((x) => ({ ...x, [a.id]: !x[a.id] }))
-                          }
+                          aria-expanded={open}
+                          aria-controls={renderSites ? sites.id : undefined}
+                          onClick={sites.toggle}
+                          title={app.name}
                         >
-                          <strong>{a.name}</strong>
-                          <motion.span
-                            animate={{ rotate: expanded[a.id] ? 180 : 0 }}
-                          >
-                            <ChevronDown size={14} />
-                          </motion.span>
+                          <ChevronDown className="browser-chevron" size={16} aria-hidden="true" />
+                          <strong>{app.name}</strong>
                         </button>
                       ) : (
-                        <strong title={a.name}>{a.name}</strong>
+                        <strong title={app.name}>{app.name}</strong>
                       )}
                     </div>
-                    <div className="app-track">
-                      <Fill
-                        value={totalMs ? a.ms / totalMs : 0}
-                        color={color}
-                      />
+                    <div className="program-category" role="cell">
+                      <CategorySelect app={app} />
                     </div>
-                    {parts.length > 1 && (
-                      <div className="mix-caption">
-                        {parts.map(([id, p]) => (
-                          <span key={id}>
-                            {p}% {types[id]?.label}
-                          </span>
-                        ))}
-                      </div>
-                    )}
+                    <div className={"program-time" + (editing ? " time-with-action" : "")} role="cell">
+                      <Duration ms={app.ms} />
+                      {editing && (
+                        <button
+                          className="remove-program icon-button"
+                          aria-label={"Убрать " + app.name + " из списка"}
+                          onClick={() => setModal({ kind: "hide", app })}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <CategorySelect app={a} />
-                  <span className="program-time">
-                    <Duration ms={a.ms} />
-                  </span>
-                  {editing && (
-                    <button
-                      className="remove-program icon-button"
-                      aria-label={"Убрать " + a.name + " из списка"}
-                      onClick={() => setModal({ kind: "hide", app: a })}
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                  {renderSites && (
+                    <Sites
+                      app={app}
+                      id={sites.id}
+                      groupRef={sites.groupRef}
+                      closing={!open}
+                      editing={editing}
+                    />
                   )}
                 </div>
-                <AnimatePresence initial={false}>
-                  {firefox && expanded[a.id] && (
-                    <motion.div
-                      className="sites-collapse"
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{
-                        duration: active ? 0.2 : 0,
-                        ease: [0.23, 1, 0.32, 1],
-                      }}
-                    >
-                      <Sites app={a} />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.div>
-            );
-          })}
-        </AnimatePresence>
-      </motion.div>
-      {!visible.length && (
-        <div className="empty-state">
-          <Monitor size={30} />
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <div className="empty-state program-empty">
+          <Monitor size={24} aria-hidden="true" />
           <h3>
-            {search || filter !== "all"
+            {query || category !== "all"
               ? "Ничего не найдено"
               : "Пока нет программ дольше минуты"}
           </h3>
           <p>
-            {search || filter !== "all"
-              ? "Попробуй другой вид или название."
+            {query || category !== "all"
+              ? "Попробуй другую категорию или название."
               : "Они появятся автоматически по мере использования."}
           </p>
         </div>
       )}
       <div className="program-list-footer">
-        <span>
-          <ShieldCheck size={13} />
-          Фоновое время не учитывается
-        </span>
-        <div>
-          {shortCount > 0 && data.settings.hideShort !== false && (
-            <button onClick={() => setShort((x) => !x)} aria-pressed={short}>
-              {short ? "Скрыть короткие" : "Меньше минуты · " + shortCount}
-            </button>
-          )}
-          <button onClick={() => setModal({ kind: "hidden" })}>Скрытые</button>
-        </div>
+        {onShowAll && (
+          <button className="program-show-all" onClick={onShowAll}>
+            Все программы <ArrowRight size={15} aria-hidden="true" />
+          </button>
+        )}
+        {all && (
+          <div className="program-list-options">
+            {hideShort && (
+              <button className="program-option" onClick={() => setShort((x) => !x)} aria-pressed={short}>
+                {short ? "Скрыть короткие" : "Меньше минуты · " + shortCount}
+              </button>
+            )}
+            <button className="program-option" onClick={() => setModal({ kind: "hidden" })}>Скрытые</button>
+          </div>
+        )}
       </div>
     </Panel>
   );
