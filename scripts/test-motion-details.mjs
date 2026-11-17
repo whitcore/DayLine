@@ -7,9 +7,14 @@ const root = path.resolve("."),
   { motionFixture } = require("../tests/motion-fixture.cjs");
 await mkdir("test-results", { recursive: true });
 const dir = await mkdtemp(path.join(root, "test-results", "motion-details-"));
+const fixture = motionFixture();
+// Keep the Firefox row visible when the suite starts just after midnight.
+const activeDay = new Date();
+activeDay.setHours(10, 0, 0, 0);
+fixture.sessions.push({ appId: "firefox.exe", start: +activeDay, end: +activeDay + 120_000 });
 await writeFile(
   path.join(dir, "dayline.json"),
-  JSON.stringify(motionFixture()),
+  JSON.stringify(fixture),
 );
 const env = { ...process.env, DAYLINE_DATA_DIR: dir };
 delete env.ELECTRON_RUN_AS_NODE;

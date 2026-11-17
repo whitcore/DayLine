@@ -1,60 +1,62 @@
 import { useLocale } from "./i18n.jsx";
-import { memo, useId, useState } from "react";
+import { useId, useState } from "react";
 import * as Checkbox from "@radix-ui/react-checkbox";
 import { Check } from "lucide-react";
 import { Panel } from "./motion.jsx";
-import { categories } from "./shared.js";
-
-const series = Object.entries(categories);
 const weekday = { weekday: "short" };
 const fullDay = { weekday: "long", day: "numeric", month: "long" };
+const shortDay = { day: "numeric", month: "short" };
 const minute = 60_000;
 
 function CategoryFilter({ category, checked, onChange }) {
   const { t } = useLocale();
   return (
     <label className="colored-checkbox" style={{ "--check-color": category.color }}>
-      <Checkbox.Root checked={checked} onCheckedChange={onChange} aria-label={t("Показать ") + t(category.label)}>
+      <Checkbox.Root checked={checked} onCheckedChange={onChange} aria-label={t("Показать ") + category.label}>
         <Checkbox.Indicator><Check size={12} aria-hidden="true" /></Checkbox.Indicator>
       </Checkbox.Root>
-      <span>{t(category.label)}</span>
+      <span>{category.label}</span>
     </label>
   );
 }
 
-export default memo(function WeekChart({ week, onDate }) {
+export default function ActivityChart({ rows, types, week, onDate, onRange }) {
   const { t, pretty, time } = useLocale();
   const [hidden, setHidden] = useState({});
   const title = useId();
-  const maximum = Math.max(60, ...week.map((day) => day.totalMs / minute));
+  const maximum = Math.max(60, ...rows.map((row) => row.totalMs / minute));
   const step = maximum <= 60 ? 15 : Math.ceil(maximum / 240) * 60;
   const scale = step * 4 * minute;
-  const visibleSeries = series.filter(([key]) => !hidden[key]);
+  const series = types.filter(({ id }) => ["focus", "neutral", "rest"].includes(id) ||
+    rows.some((row) => row.typeTotals[id] > 0));
+  const visibleSeries = series.filter(({ id }) => !hidden[id]);
   return (
     <Panel className="week-panel" aria-labelledby={title}>
-      <div className="section-heading"><h2 id={title}>{t("Активность за неделю")}</h2></div>
+      <div className="section-heading"><h2 id={title}>{t(week ? "Активность за неделю" : "Активность за период")}</h2></div>
       <div className="week-chart">
-        <div className="week-plot">
-          {week.map((day) => {
-            const fullDate = pretty(day.date, fullDay);
-            const breakdown = visibleSeries.map(([key, category]) => (
-              `${t(category.label)}: ${time(day[`${key}Ms`])}`
-            ));
+        <div className={"week-plot" + (week ? "" : " range-plot")} style={{ "--plot-rows": rows.length }}>
+          {rows.map((day) => {
+            const multipleDays = day.to && day.to !== day.date;
+            const label = multipleDays ? `${pretty(day.date, shortDay)} – ${pretty(day.to, shortDay)}` : pretty(day.date, week ? weekday : shortDay);
+            const fullDate = multipleDays ? label : pretty(day.date, fullDay);
+            const breakdown = visibleSeries
+              .filter(({ id }) => day.typeTotals[id] > 0)
+              .map(({ id, label }) => `${label}: ${time(day.typeTotals[id])}`);
             return (
               <button
                 type="button"
                 key={day.date}
                 className="week-column"
-                onClick={() => onDate(day.date)}
-                aria-label={t("Открыть {0}: {1}", pretty(day.date), time(day.totalMs))}
+                onClick={() => multipleDays ? onRange(day.date, day.to) : onDate(day.date)}
+                aria-label={t("Открыть {0}: {1}", multipleDays ? label : pretty(day.date), time(day.totalMs))}
                 aria-description={breakdown.join(", ") || undefined}
               >
                 <span className="week-day">
-                  {pretty(day.date, weekday)}
+                  {label}
                 </span>
                 <span className="week-bar" aria-hidden="true">
-                  {visibleSeries.map(([key, category]) => (
-                    <i key={key} style={{ width: `${100 * day[`${key}Ms`] / scale}%`, background: category.color }} />
+                  {visibleSeries.map(({ id, color }) => (
+                    <i key={id} style={{ width: `${100 * (day.typeTotals[id] || 0) / scale}%`, background: color }} />
                   ))}
                 </span>
                 <span className="chart-tooltip" aria-hidden="true">
@@ -73,21 +75,15 @@ export default memo(function WeekChart({ week, onDate }) {
         </div>
       </div>
       <div className="chart-filters">
-        {series.map(([key, category]) => (
-          <CategoryFilter key={key} category={category} checked={!hidden[key]} onChange={(checked) => (
-            setHidden((current) => ({ ...current, [key]: !checked }))
+        {series.map((category) => (
+          <CategoryFilter key={category.id} category={category} checked={!hidden[category.id]} onChange={(checked) => (
+            setHidden((current) => ({ ...current, [category.id]: !checked }))
           )} />
         ))}
       </div>
-      {!week.some((day) => day.totalMs > 0) && (
-        <p className="chart-empty">{t("За выбранную неделю нет активности.")}</p>
+      {!rows.some((day) => day.totalMs > 0) && (
+        <p className="chart-empty">{t(week ? "За выбранную неделю нет активности." : "За выбранный период нет активности.")}</p>
       )}
     </Panel>
   );
-}, (a, b) =>
-  a.onDate === b.onDate &&
-  a.week.length === b.week.length &&
-  a.week.every((day, index) => day.date === b.week[index].date &&
-    ["totalMs", "focusMs", "neutralMs", "restMs"].every((key) => day[key] === b.week[index][key]),
-  ),
-);
+}

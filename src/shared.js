@@ -3,6 +3,18 @@ export const categories = {
   neutral: { label: "Нейтрально", color: "var(--yellow)" },
   rest: { label: "Отдых", color: "var(--pink)" },
 };
+const defaultColors = { focus: "#b9ff4b", neutral: "#ffe34d", rest: "#ff5ca8" };
+export function describeTypes(types, translate) {
+  return Object.entries(types || categories).map(([id, type]) => {
+    const base = categories[id];
+    const standardLabel = base?.label === type.label || (id === "c-site-study" && type.label === "Учёба");
+    return {
+      id,
+      label: standardLabel ? translate(type.label) : type.label,
+      color: base && (type.color === defaultColors[id] || !type.color) ? base.color : type.color,
+    };
+  });
+}
 export const dateKey = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 export const shift = (date, n) => {

@@ -10,12 +10,14 @@ class SummaryCache {
     this.source = state.sessions;
     this.days = new Map();
     this.cache = new Map();
+    this.period = null;
     this.indexed = 0;
     this.tail = null;
     this.tailEnd = 0;
     this.sync();
   }
   invalidate(date) {
+    this.period = null;
     if (date) this.cache.delete(date);
     else this.cache.clear();
   }
@@ -41,12 +43,22 @@ class SummaryCache {
   }
   get(date) {
     this.sync();
+    return this.read(date);
+  }
+  read(date) {
     if (!this.cache.has(date))
       this.cache.set(
         date,
         summary({ ...this.state, sessions: this.days.get(date) || [] }, date),
       );
     return this.cache.get(date);
+  }
+  entriesBetween(from, to) {
+    this.sync();
+    return [...this.days.keys()]
+      .filter((date) => date >= from && date <= to)
+      .sort()
+      .map((date) => this.read(date));
   }
 }
 module.exports = { SummaryCache };

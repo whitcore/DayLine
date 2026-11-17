@@ -227,7 +227,7 @@ export function RouteStage({ route, children }) {
     lastEntrance.current = entrance;
     if (!canFade || inputMethod.current === "keyboard") return;
     const animation = ref.current.animate([{ opacity: 0.35 }, { opacity: 1 }], {
-      duration: effective === "reduced" ? 120 : 140,
+      duration: effective === "reduced" ? 120 : 175,
       easing: cssEaseOut,
     });
     return () => animation.cancel();

@@ -1,6 +1,9 @@
 .app {
+  user-select: none;
   --sidebar: clamp(176px, 15.5vw, 234px);
 }
+body { user-select: none; }
+:is(input, textarea, [contenteditable="true"]) { user-select: text; }
 .app.sidebar-collapsed {
   --sidebar: 72px;
 }
@@ -78,11 +81,34 @@
   height: 40px;
   justify-content: flex-end;
 }
-.tracking-status {
-  font-size: 11px;
+.tracking-controls {
+  --tracking-accent: var(--muted);
+  display: inline-flex;
+  gap: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: 7px;
+  background: var(--surface);
 }
-.tracking-status > i {
+.tracking-controls[data-tracking="active"] { --tracking-accent: var(--lime); }
+.tracking-controls[data-tracking="error"] { --tracking-accent: var(--pink); }
+.tracking-controls .tracking-status {
+  padding: 0 9px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.tracking-controls .tracking-status > i {
+  width: 6px;
+  height: 6px;
+  background: var(--tracking-accent);
   box-shadow: none;
+}
+.tracking-controls .pause-button {
+  width: 26px;
+  height: 24px;
+  border: 0;
+  border-left: 1px solid var(--border-subtle);
+  border-radius: 0 6px 6px 0;
 }
 main {
   max-width: 1440px;
@@ -177,9 +203,14 @@ main {
   border-radius: 2px;
 }
 .time-distribution {
-  grid-template-columns: repeat(3, max-content);
-  column-gap: clamp(13px, 3vw, 44px);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px clamp(13px, 3vw, 36px);
 }
+.time-distribution > div,
+.legend > span { max-width: 100%; overflow-wrap: anywhere; min-width: 0; }
+.legend { flex-wrap: wrap; justify-content: flex-end; white-space: normal; }
+.time-distribution i, .legend i { flex: 0 0 8px; }
 .time-distribution > div > span,
 .legend > span {
   color: var(--text-secondary);
@@ -254,6 +285,7 @@ main {
   padding-block: 20px 23px;
   border-bottom: 1px solid var(--border-subtle);
 }
+.overview-grid + .timeline-panel { border-top: 1px solid var(--border-subtle); }
 .timeline-panel .section-heading {
   margin-bottom: 15px;
 }
@@ -341,9 +373,29 @@ main {
 .week-plot {
   position: relative;
   display: grid;
-  grid-template-rows: repeat(7, minmax(0, 1fr));
+  grid-template-rows: repeat(var(--plot-rows, 7), minmax(0, 1fr));
   height: clamp(192px, 27vh, 278px);
 }
+.week-plot.range-plot {
+  --plot-label: clamp(110px, 16vw, 152px);
+  height: max(36px, calc(var(--plot-rows) * 32px));
+}
+.week-chart:has(.range-plot) .week-axis { --plot-label: clamp(110px, 16vw, 152px); }
+.range-plot .week-day { font-size: 12px; }
+.stats-period,
+.range-controls,
+.range-controls > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.stats-period { gap: 12px; margin: -7px 0 24px; }
+.range-controls { gap: 12px; }
+.range-controls > div > span,
+.stats-date-range { font-size: 12px; color: var(--muted); }
+.range-controls .day-date-trigger { border-inline: 0; }
+.week-panel .chart-filters { flex-wrap: wrap; }
 .week-plot::before {
   content: "";
   position: absolute;

@@ -1,0 +1,40 @@
+const assert = require("node:assert/strict");
+const test = require("node:test");
+const { initialState, addInterval, saveType, setSiteCategory } = require("../desktop/model.cjs");
+const { SummaryCache } = require("../desktop/summary-cache.cjs");
+const { periodSummary } = require("../desktop/period.cjs");
+
+test("custom and all-time statistics include dated intervals and preserve site categories", () => {
+  const state = initialState();
+  const appId = "firefox.exe";
+  state.apps[appId] = { name: "Firefox", category: "neutral" };
+  saveType(state, { id: "c-learning", label: "Учёба", color: "#38dce8", base: "focus" });
+  setSiteCategory(state, "example.com", "c-learning");
+  const add = (date, minutes, domain) => {
+    const start = new Date(date + "T12:00:00").getTime();
+    addInterval(state, { appId, start, end: start + minutes * 60_000, domain });
+  };
+  add("2025-11-02", 42, "example.com");
+  add("2026-11-15", 10);
+  add("2026-11-17", 20, "example.com");
+  const summaries = new SummaryCache(state);
+  const today = "2026-11-17";
+  const query = (range) => periodSummary(summaries, state.apps, range, today);
+  const range = { mode: "range", from: "2026-11-15", to: today };
+  const selected = query(range);
+  assert.equal(selected.totalMs, 30 * 60_000);
+  assert.equal(selected.focusMs, 20 * 60_000);
+  assert.equal(selected.typeTotals["c-learning"], 20 * 60_000);
+  assert.deepEqual(selected.rows.map((row) => row.totalMs / 60_000), [10, 0, 20]);
+  assert.deepEqual(selected.apps[0].sites, [{ domain: "example.com", ms: 20 * 60_000 }]);
+  assert.equal(query(range), selected);
+  const all = query({ mode: "all" });
+  assert.equal(all.from, "2025-11-02");
+  assert.equal(all.totalMs, 72 * 60_000);
+  assert.ok(all.rows.length <= 14);
+  assert.equal(all.rows.reduce((sum, row) => sum + row.totalMs, 0), all.totalMs);
+  state.sessions.at(-1).end += 60_000;
+  assert.equal(query(range).totalMs, 31 * 60_000);
+  assert.throws(() => query({ mode: "range", from: "2026-02-31", to: today }), /Invalid statistics period/);
+  assert.throws(() => query({ ...range, to: "2026-11-18" }), /Invalid statistics period/);
+});

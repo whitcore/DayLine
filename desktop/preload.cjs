@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld("dayline", {
   },
   snapshot: (date, revision) =>
     ipcRenderer.invoke("dayline:snapshot", date, revision),
+  period: (range) => ipcRenderer.invoke("dayline:period", range),
   pause: (paused) => ipcRenderer.invoke("dayline:pause", paused),
   category: (id, category) =>
     ipcRenderer.invoke("dayline:category", id, category),

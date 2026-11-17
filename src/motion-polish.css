@@ -162,6 +162,9 @@ html[data-motion="reduced"] *::after {
   transition-duration: 120ms !important;
   scroll-behavior: auto !important;
 }
+html[data-motion="reduced"] .dayline-popover[data-motion="fade"][data-state="open"] {
+  animation: control-popover-fade 120ms var(--ease-out) !important;
+}
 html[data-motion="off"] *,
 html[data-motion="off"] *::before,
 html[data-motion="off"] *::after {

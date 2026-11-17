@@ -82,7 +82,7 @@
 }
 
 .dayline-popover[data-state="open"][data-motion="fade"] {
-  animation: control-popover-fade 150ms cubic-bezier(0.23, 1, 0.32, 1);
+  animation: control-popover-fade 120ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 .day-calendar {
@@ -350,22 +350,6 @@
   }
   to {
     opacity: 1;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .dayline-popover[data-state="open"][data-motion="full"] {
-    animation-name: control-popover-fade;
-  }
-
-  [data-motion="full"] .control-press,
-  .control-press[data-motion="full"] {
-    transition: none;
-  }
-
-  [data-motion="full"] .control-press:active:not(:disabled),
-  .control-press[data-motion="full"]:active:not(:disabled) {
-    transform: none;
   }
 }
 

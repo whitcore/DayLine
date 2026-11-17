@@ -42,6 +42,14 @@ export default function Settings({ data, onSettings, notify, onPrograms }) {
       <MotionSettings />
       <section className="settings-group focus-settings" aria-labelledby="focus-settings-heading">
         <h2 id="focus-settings-heading">{t("Фокус")}</h2>
+        <div className="setting-row">
+          <div>
+            <strong>{t("Показывать таймер фокуса")}</strong>
+            <p>{t("Скрытие таймера поставит текущую сессию на паузу.")}</p>
+          </div>
+          <Toggle label={t("Показывать таймер фокуса")} checked={settings.showFocusTimer !== false}
+            onChange={() => setting({ showFocusTimer: settings.showFocusTimer === false })} />
+        </div>
         <details className="settings-details">
           <summary className="setting-row">
             <strong>{t("Работа и перерыв")}</strong>

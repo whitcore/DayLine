@@ -98,6 +98,8 @@ export default function DatePicker({
   stepDays = 1,
   rangeStart,
   monthNavigation = false,
+  pickerLabel,
+  compact = false,
 }) {
   const { t, locale } = useLocale();
   const { dateFormat, monthFormat, rangeFormat, shortDateFormat, fullDateFormat } = calendarFormats[locale];
@@ -202,7 +204,7 @@ export default function DatePicker({
 
   return (
     <div className="day-date-controls">
-      {navigationKey !== today && today <= limit && (
+      {!compact && navigationKey !== today && today <= limit && (
         <button type="button" className="day-date-return quiet-button control-press"
           aria-label={t("Вернуться к сегодняшнему дню")}
           data-motion={motionMode(motion, false)}
@@ -210,7 +212,7 @@ export default function DatePicker({
           <RotateCcw size={14} aria-hidden="true" />{" "}{t("Сегодня")}</button>
       )}
     <div className="day-date-picker" data-motion={motionMode(motion, false)}>
-      <button
+      {!compact && <button
         type="button"
         className="day-date-step control-press"
         aria-label={stepLabels[0]}
@@ -219,13 +221,13 @@ export default function DatePicker({
         onClick={() => step(-1)}
       >
         <ChevronLeft size={16} aria-hidden="true" />
-      </button>
+      </button>}
       <Popover.Root open={open} onOpenChange={openCalendar}>
         <Popover.Trigger asChild>
           <button
             type="button"
             className="day-date-trigger control-press"
-            aria-label={t("Выбрать дату")}
+            aria-label={pickerLabel || t("Выбрать дату")}
             aria-describedby={`${id}-value`}
             onPointerDown={() => {
               keyboardOpen.current = false;
@@ -352,7 +354,7 @@ export default function DatePicker({
           </Popover.Content>
         </Popover.Portal>
       </Popover.Root>
-      <button
+      {!compact && <button
         type="button"
         className="day-date-step control-press"
         aria-label={stepLabels[1]}
@@ -361,7 +363,7 @@ export default function DatePicker({
         onClick={() => step(1)}
       >
         <ChevronRight size={16} aria-hidden="true" />
-      </button>
+      </button>}
     </div>
     </div>
   );

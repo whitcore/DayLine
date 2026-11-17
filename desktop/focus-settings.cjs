@@ -17,6 +17,7 @@ function focusSettings(settings) {
     result.focusBreakMinutes > 60 ||
     !["share", "goal"].includes(result.focusScoreMode) ||
     ![0, 25, 50, 75, 100].includes(result.focusNeutralWeight) ||
+    (result.showFocusTimer !== undefined && typeof result.showFocusTimer !== "boolean") ||
     typeof result.focusIncludeRest !== "boolean" ||
     !Number.isInteger(result.focusDailyGoalMinutes) ||
     result.focusDailyGoalMinutes < 15 ||

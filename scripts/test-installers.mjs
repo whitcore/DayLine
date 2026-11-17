@@ -217,9 +217,17 @@ async function runInstalledVersion(installer, version) {
 const baseline = await runInstalledVersion(baselineInstaller, baselineVersion);
 assert.deepEqual(await profileHashes(), initialHashes, "1.4.0 changed the input history or icon");
 // Both versions should load from the same path, as in an in-place update.
-await rename(installPath, path.join(testDirectory, `Dayline-${baselineVersion}`));
+for (let attempt = 0; ; attempt += 1) {
+  try {
+    await rename(installPath, path.join(testDirectory, `Dayline-${baselineVersion}`));
+    break;
+  } catch (error) {
+    if (attempt >= 10 || !["EPERM", "EBUSY"].includes(error.code)) throw error;
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  }
+}
 const updated = await runInstalledVersion(releaseInstaller, releaseVersion);
-assert.deepEqual(await profileHashes(), initialHashes, "1.5.0 changed the input history or icon");
+assert.deepEqual(await profileHashes(), initialHashes, `${releaseVersion} changed the input history or icon`);
 assert.deepEqual(updated, baseline, "The update changed historical snapshots");
 
 const populated = updated.find(({ date }) => date === populatedDay);

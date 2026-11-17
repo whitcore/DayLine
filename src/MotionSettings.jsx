@@ -55,12 +55,12 @@ export default function MotionSettings() {
         : t("Полные. Появление, раскрытие и отклик кнопок.");
 
   useLayoutEffect(() => {
-    if (!preview?.animate || !enabled) return;
+    if (!preview || !enabled) return;
     const frames = effective === "reduced"
       ? [{ opacity: 0 }, { opacity: 1 }]
-      : [{ opacity: 0, transform: "translateY(3px)" }, { opacity: 1, transform: "translateY(0)" }];
+      : [{ opacity: 0, transform: "translateY(8px) scale(.98)" }, { opacity: 1, transform: "translateY(0) scale(1)" }];
     const animation = example.current.animate(frames, {
-      duration: effective === "reduced" ? 120 : 160,
+      duration: effective === "reduced" ? 120 : 220,
       easing: cssEaseOut,
     });
     return () => animation.cancel();
@@ -112,7 +112,7 @@ export default function MotionSettings() {
           type="button"
           className="button"
           disabled={!enabled}
-          onClick={(event) => setPreview({ animate: event.detail > 0 })}
+          onClick={() => setPreview((previous) => (previous ?? 0) + 1)}
         >
           <Play size={15} aria-hidden="true" />{t("Показать анимации")}</button>
         {preview && enabled && (

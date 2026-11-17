@@ -19,6 +19,7 @@ const { pathToFileURL } = require("node:url");
 const { Tracker } = require("./tracker.cjs");
 const { Storage } = require("./storage.cjs");
 const { SummaryCache } = require("./summary-cache.cjs");
+const { aggregateApps, periodSummary } = require("./period.cjs");
 const { focusSettings } = require("./focus-settings.cjs");
 const { FocusTimer } = require("./focus.cjs");
 const {
@@ -44,7 +45,9 @@ app.setPath(
   process.env.DAYLINE_DATA_DIR || path.join(app.getPath("appData"), "Dayline"),
 );
 const testMode = process.argv.includes("--test-mode");
-if (!app.requestSingleInstanceLock()) {
+const loginArgs = ["--hidden", "--autostart"];
+const backgroundLaunch = process.argv.some((arg) => loginArgs.includes(arg));
+if (!app.requestSingleInstanceLock({ backgroundLaunch })) {
   app.quit();
 } else {
   let win,
@@ -142,32 +145,11 @@ if (!app.requestSingleInstanceLock()) {
       return summaries.get(localDate(day));
     });
     const result = summaries.get(date);
-    const weekTotals = {},
-      weekSites = {};
-    for (const day of week)
-      for (const a of day.apps) {
-        weekTotals[a.id] = (weekTotals[a.id] || 0) + a.ms;
-        for (const site of a.sites) {
-          weekSites[a.id] ??= {};
-          weekSites[a.id][site.domain] =
-            (weekSites[a.id][site.domain] || 0) + site.ms;
-        }
-      }
-    const weekApps = Object.entries(weekTotals)
-      .map(([id, ms]) => ({
-        id,
-        ms,
-        ...storage.data.apps[id],
-        sites: Object.entries(weekSites[id] || {})
-          .map(([domain, ms]) => ({ domain, ms }))
-          .sort((a, b) => b.ms - a.ms),
-      }))
-      .sort((a, b) => b.ms - a.ms);
     return {
       ...result,
       today: localDate(Date.now()),
       week: week.map(({ sessions, apps, entry, ...s }) => s),
-      weekApps,
+      weekApps: aggregateApps(week, storage.data.apps),
       catalog: storage.data.apps,
       types: storage.data.types,
       siteCategories: storage.data.siteCategories,
@@ -339,6 +321,7 @@ if (!app.requestSingleInstanceLock()) {
         summaries &&
         ![
           "dayline:snapshot",
+          "dayline:period",
           "dayline:window-visible",
           "dayline:focus-snapshot",
           "dayline:focus-action",
@@ -369,6 +352,18 @@ if (!app.requestSingleInstanceLock()) {
         onChange: notify,
       });
       summaries = new SummaryCache(storage.data);
+      if (app.isPackaged && !testMode && storage.data.settings.launchAtLogin) {
+        try {
+          const options = { path: process.execPath, args: loginArgs };
+          const registered = app.getLoginItemSettings(options);
+          if (!registered.openAtLogin) {
+            const previous = registered.launchItems.find((item) => item.name === "app.dayline.desktop" && item.scope === "user");
+            app.setLoginItemSettings({ ...options, openAtLogin: true, enabled: previous?.enabled ?? true });
+          }
+        } catch (error) {
+          console.warn("Dayline could not update the Windows startup entry:", error.message);
+        }
+      }
       focus = new FocusTimer({
         settings: storage.data.settings,
         onComplete: ({ phase }) => {
@@ -435,7 +430,7 @@ if (!app.requestSingleInstanceLock()) {
         }
       });
       win.on("ready-to-show", () => {
-        if (!process.argv.includes("--hidden")) show();
+        if (!backgroundLaunch) show();
       });
       const windowVisible = () => win.isVisible() && !win.isMinimized();
       const sendVisibility = () => {
@@ -455,6 +450,10 @@ if (!app.requestSingleInstanceLock()) {
       tray.on("click", show);
       updateTray();
       handle("dayline:snapshot", snapshot);
+      handle("dayline:period", (range) => {
+        const today = localDate(Date.now());
+        return periodSummary(summaries, storage.data.apps, range, today);
+      });
       handle("dayline:locale", (next) => {
         if (next === undefined || next === language) return language;
         if (next !== "en" && next !== "ru") throw Error("Invalid language");
@@ -480,6 +479,8 @@ if (!app.requestSingleInstanceLock()) {
         ];
         if (!allowed.includes(action))
           throw Error(t("Неизвестное действие таймера."));
+        if (storage.data.settings.showFocusTimer === false && !["stop", "configure"].includes(action))
+          return focus.snapshot();
         if (action === "configure") {
           const merged = focusSettings({
             ...storage.data.settings,
@@ -629,11 +630,11 @@ if (!app.requestSingleInstanceLock()) {
           typeof merged.trackSites !== "boolean"
         )
           throw Error("Invalid settings");
-        if (app.isPackaged)
+        if (app.isPackaged && !testMode && merged.launchAtLogin !== storage.data.settings.launchAtLogin)
           app.setLoginItemSettings({
             openAtLogin: merged.launchAtLogin,
             path: process.execPath,
-            args: ["--hidden"],
+            args: loginArgs,
           });
         const sitesChanged =
           merged.trackSites !== storage.data.settings.trackSites;
@@ -641,6 +642,7 @@ if (!app.requestSingleInstanceLock()) {
           ...merged,
           launchAtLogin: app.isPackaged ? merged.launchAtLogin : false,
         };
+        if (merged.showFocusTimer === false) focus.pause();
         focus.configure({
           workMinutes: storage.data.settings.focusWorkMinutes,
           breakMinutes: storage.data.settings.focusBreakMinutes,
@@ -706,6 +708,7 @@ if (!app.requestSingleInstanceLock()) {
         tracker.reset();
         incoming.settings.launchAtLogin = storage.data.settings.launchAtLogin;
         storage.data = incoming;
+        if (incoming.settings.showFocusTimer === false) focus.pause();
         focus.configure({
           workMinutes: incoming.settings.focusWorkMinutes,
           breakMinutes: incoming.settings.focusBreakMinutes,
@@ -769,8 +772,10 @@ if (!app.requestSingleInstanceLock()) {
       dialog.showErrorBox("Dayline", String(error.message));
       app.quit();
     });
-  app.on("second-instance", show);
-  app.on("activate", show);
+  app.on("second-instance", (_event, args, data) => {
+    if (!data?.backgroundLaunch && !args.some((arg) => loginArgs.includes(arg))) show();
+  });
+  if (process.platform === "darwin") app.on("activate", show);
   app.on("window-all-closed", () => {});
   app.on("before-quit", () => {
     quitting = true;

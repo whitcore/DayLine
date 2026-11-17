@@ -7,12 +7,11 @@ import {
   Home,
   Layers3,
   Monitor,
+  Menu,
   NotebookPen,
   Pause,
   Play,
   Settings2,
-  PanelLeftClose,
-  PanelLeftOpen,
 } from "lucide-react";
 import {
   AnimatePresence,
@@ -25,12 +24,12 @@ import {
   useMotion,
 } from "./motion.jsx";
 import Journal, { JournalEditor } from "./Journal.jsx";
-import { categories, dateKey, shift } from "./shared.js";
+import { dateKey, describeTypes, shift } from "./shared.js";
 import ProgramList, { ProgramsUIProvider } from "./ProgramsUI.jsx";
 import Settings from "./Settings.jsx";
 import DatePicker from "./DatePicker.jsx";
 import FocusPanel from "./FocusPanel.jsx";
-import WeekChart from "./WeekChart.jsx";
+import Statistics from "./Statistics.jsx";
 const api = window.dayline;
 function Brand() {
   return (
@@ -46,20 +45,19 @@ function Brand() {
     </div>
   );
 }
-function Legend() {
-  const { t } = useLocale();
+function Legend({ types }) {
   return (
     <div className="legend">
-      {Object.entries(categories).map(([key, c]) => (
-        <span key={key}>
-          <i style={{ background: c.color }} />
-          {t(c.label)}
+      {types.map(({ id, label, color }) => (
+        <span key={id}>
+          <i style={{ background: color }} />
+          {label}
         </span>
       ))}
     </div>
   );
 }
-function Timeline({ data }) {
+function Timeline({ data, types }) {
   const { t, time } = useLocale();
   const groups = [],
     midnight = new Date(data.date + "T00:00:00").getTime(),
@@ -81,13 +79,14 @@ function Timeline({ data }) {
       last.width += width;
     else groups.push({ start, width, cat, type, appId: s.appId, key: s.start });
   }
+  const typeById = new Map(types.map((type) => [type.id, type]));
   return (
     <Panel className="timeline-panel">
       <div className="section-heading">
         <div>
           <h2>{t("Лента дня")}</h2>
         </div>
-        <Legend />
+        <Legend types={types} />
       </div>
       <div className="timeline">
         <div className="timeline-grid">
@@ -105,17 +104,17 @@ function Timeline({ data }) {
               background: (() => {
                 const app = data.catalog[s.appId],
                   parts = Object.entries(s.type ? { [s.type]: 100 } : app?.allocations || { [s.cat]: 100 }),
-                  color = (id) => categories[id]?.color || data.types?.[id]?.color || "var(--muted)";
+                  getColor = (id) => typeById.get(id)?.color || "var(--muted)";
                 let from = 0;
                 return parts.length === 1
-                  ? color(parts[0][0])
+                  ? getColor(parts[0][0])
                   : "linear-gradient(90deg," +
                       parts
                         .map(([id, pct]) => {
                           const start = from;
                           from += pct;
                           return (
-                            color(id) +
+                            getColor(id) +
                             " " +
                             start +
                             "% " +
@@ -127,7 +126,12 @@ function Timeline({ data }) {
                       ")";
               })(),
             }}
-            title={`${data.catalog[s.appId]?.name || s.appId} · ${time((s.width / 100) * dayLength)}`}
+            title={[
+              data.catalog[s.appId]?.name || s.appId,
+              ...Object.keys(s.type ? { [s.type]: 100 } : data.catalog[s.appId]?.allocations || { [s.cat]: 100 })
+                .map((id) => typeById.get(id)?.label).filter(Boolean),
+              time((s.width / 100) * dayLength),
+            ].join(" · ")}
           />
         ))}
         {data.date === data.today && (
@@ -216,11 +220,8 @@ function TodayPrograms({ data, onCategory, onSave, onShowAll }) {
 function Today({ data, onCategory, onSave, onShowAll }) {
   const { t, time } = useLocale();
   const total = Math.floor(data.totalMs / 60000);
-  const parts = Object.entries(categories).map(([key, category]) => ({
-    ...category,
-    key,
-    ms: data[`${key}Ms`],
-  }));
+  const types = describeTypes(data.types, t);
+  const parts = types.map((type) => ({ ...type, ms: data.typeTotals[type.id] || 0 }));
   return (
     <>
       <div className="overview-grid">
@@ -242,14 +243,14 @@ function Today({ data, onCategory, onSave, onShowAll }) {
             <span>{t("мин")}</span>
           </div>
           <div className="distribution-bar" aria-hidden="true">
-            {parts.filter(({ ms }) => ms > 0).map(({ key, color, ms }) => (
-              <span key={key} style={{ flexGrow: ms, background: color }} />
+            {parts.filter(({ ms }) => ms > 0).map(({ id, color, ms }) => (
+              <span key={id} style={{ flexGrow: ms, background: color }} />
             ))}
           </div>
           <div className="time-distribution">
-            {parts.map(({ key, color, label, ms }) => (
-              <div key={key}>
-                <span><i style={{ background: color }} />{t(label)}</span>
+            {parts.map(({ id, color, label, ms }) => (
+              <div key={id}>
+                <span><i style={{ background: color }} />{label}</span>
                 <strong><Duration ms={ms} /></strong>
               </div>
             ))}
@@ -257,57 +258,9 @@ function Today({ data, onCategory, onSave, onShowAll }) {
         </Panel>
         <Score data={data} />
       </div>
-      <FocusPanel />
-      <Timeline data={data} />
+      {data.settings.showFocusTimer !== false && <FocusPanel />}
+      <Timeline data={data} types={types} />
       <TodayPrograms key={data.date} {...{ data, onCategory, onSave, onShowAll }} />
-    </>
-  );
-}
-function Statistics({ data, onDate, onCategory }) {
-  const { t } = useLocale();
-  const sum = (key) => data.week.reduce((n, d) => n + d[key], 0);
-  return (
-    <>
-      <div className="stat-tiles">
-        {[
-          {
-            label: t("Активное время"),
-            ms: sum("totalMs"),
-          },
-          {
-            label: t("Рабочее время"),
-            ms: sum("focusMs"),
-          },
-          {
-            label: t("Фокус за неделю"),
-            value: sum("totalMs")
-              ? Math.round((100 * sum("focusMs")) / sum("totalMs"))
-              : null,
-          },
-        ].map(({ label, ms, value }) => (
-          <Panel className="stat-tile" key={label}>
-            <h2>{label}</h2>
-            <strong>
-              {ms !== undefined ? (
-                <Duration ms={ms} />
-              ) : value === null ? (
-                "—"
-              ) : (
-                <AnimatedNumber value={value} suffix="%" />
-              )}
-            </strong>
-          </Panel>
-        ))}
-      </div>
-      <WeekChart week={data.week} onDate={onDate} />
-      <ProgramList
-        apps={data.weekApps}
-        icons={data.icons}
-        onCategory={onCategory}
-        totalMs={sum("totalMs")}
-        all
-        title={t("Программы за неделю")}
-      />
     </>
   );
 }
@@ -462,7 +415,8 @@ export default function App() {
     ) : page === "stats" ? (
       <Statistics
         data={data}
-        onCategory={category}
+        date={date}
+        onSelectDate={selectDate}
         onDate={openDay}
       />
     ) : page === "journal" ? (
@@ -494,11 +448,7 @@ export default function App() {
             }}
             title={collapsed ? t("Развернуть меню") : t("Свернуть меню")}
           >
-            {collapsed ? (
-              <PanelLeftOpen size={17} />
-            ) : (
-              <PanelLeftClose size={17} />
-            )}
+            <Menu size={19} strokeWidth={1.7} aria-hidden="true" />
           </button>
           <nav aria-label={t("Разделы")}>
             {nav.map(([key, label, Icon]) => (
@@ -529,7 +479,7 @@ export default function App() {
         </aside>
         <div className="workspace" ref={workspaceRef}>
           <header className="topbar">
-            <div className="tracking-controls">
+            <div className="tracking-controls" data-tracking={data.status.kind}>
               <span
                 className={"tracking-status " + data.status.kind}
                 title={data.status.detail}
@@ -557,14 +507,12 @@ export default function App() {
           <main>
             <div className="page-heading">
               <h1>{title}</h1>
-              {page !== "settings" && page !== "journal" && (
+              {(page === "today" || page === "programs") && (
                 <DatePicker
                   value={data.date}
                   navigationValue={date}
                   max={data.today}
                   onChange={selectDate}
-                  stepDays={page === "stats" ? 7 : 1}
-                  rangeStart={page === "stats" ? data.week[0]?.date : undefined}
                 />
               )}
             </div>
