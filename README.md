@@ -40,7 +40,7 @@ DayLine includes English and Russian, five themes and configurable motion. Graph
 
 ## Install and update
 
-1. Download **Dayline-Setup-1.5.2.exe** from [GitHub Releases](https://github.com/whitcore/DayLine/releases/latest).
+1. Download **Dayline-Setup-1.5.3.exe** from [GitHub Releases](https://github.com/whitcore/DayLine/releases/latest).
 2. Run the installer on Windows 10 or 11 x64. It installs for the current user. The installer is unsigned and Windows SmartScreen may show a warning.
 3. For an update, save a backup in Settings and exit DayLine from the tray before running the installer.
 
@@ -58,4 +58,4 @@ npm.cmd run test:desktop
 npm.cmd run package
 ```
 
-The package command produces the NSIS installer in `release/1.5.2`. The desktop check launches Electron with a separate test profile. For implementation details, see the [architecture notes](docs/ARCHITECTURE.md).
+The package command produces the NSIS installer in `release/1.5.3`. The desktop check launches Electron with a separate test profile. For implementation details, see the [architecture notes](docs/ARCHITECTURE.md).

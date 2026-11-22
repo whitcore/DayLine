@@ -7,6 +7,7 @@ import { _electron as electron, expect } from "@playwright/test";
 
 const root = path.resolve(".");
 const require = createRequire(import.meta.url);
+const { version } = require("../package.json");
 const { initialState, addInterval, localDate, saveType, setSiteCategory } = require("../desktop/model.cjs");
 const results = path.join(root, "test-results");
 await mkdir(results, { recursive: true });
@@ -28,7 +29,7 @@ const history = path.join(profile, "dayline.json");
 await writeFile(history, JSON.stringify(state, null, 2));
 const env = { ...process.env, DAYLINE_DATA_DIR: profile };
 delete env.ELECTRON_RUN_AS_NODE;
-const executablePath = path.join(root, "release/1.5.2/win-unpacked/Dayline.exe");
+const executablePath = process.env.DAYLINE_TEST_EXE || path.join(root, "release", version, "win-unpacked", "Dayline.exe");
 const app = await electron.launch({ executablePath, args: ["--test-mode", "--autostart"], cwd: root, env });
 const releaseWindow = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isVisible());
 const openAnother = (...args) => new Promise((resolve, reject) => {
@@ -75,7 +76,7 @@ try {
     await page.getByRole("dialog").getByRole("button", { name: "Предыдущий месяц" }).click();
   await page.getByRole("button", { name: dayLabel, exact: true }).click();
   await expect(page.locator(".stat-tiles .duration").first()).toHaveAttribute("aria-label", "1 ч 13 мин");
-  await page.screenshot({ path: path.join(results, "dayline-1.5.2-custom-range.png") });
+  await page.screenshot({ path: path.join(results, `dayline-${version}-custom-range.png`) });
 
   await button("Сегодня").click();
   await button("Начать фокус").click();
