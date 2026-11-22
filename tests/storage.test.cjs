@@ -8,3 +8,28 @@ test('atomic storage persists and recovers a previous valid copy without overwri
 test('invalid backup sessions, settings, categories and journal entries are rejected',()=>{
  for(const mutate of [s=>s.sessions.push({appId:'x',start:10,end:1}),s=>s.sessions.push({appId:'missing',start:1,end:10}),s=>s.settings.idleMinutes=-1,s=>s.apps.x={name:'x',exe:'x',category:'other'},s=>s.entries['2026-11-07']={mood:99,note:'',done:''}]){const s=initialState();mutate(s);assert.throws(()=>validateState(s));}
 });
+
+test('the backup advances again after the primary file is repaired', () => {
+ const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dayline-storage-'));
+ const file = path.join(dir, 'dayline.json');
+ const date = '2026-11-07';
+ const saveNote = (storage, note) => {
+  storage.data.entries[date] = { mood: null, note, done: '' };
+  storage.dirty = true;
+  storage.save();
+ };
+ try {
+  const storage = new Storage(dir);
+  saveNote(storage, 'Original backup');
+  saveNote(storage, 'Original primary');
+  fs.writeFileSync(file, 'corrupted');
+  const recovered = new Storage(dir);
+  saveNote(recovered, 'First edit after recovery');
+  assert.equal(JSON.parse(fs.readFileSync(file + '.bak', 'utf8')).entries[date].note, 'Original backup');
+  saveNote(recovered, 'Second edit after recovery');
+  fs.writeFileSync(file, 'corrupted again');
+  assert.equal(new Storage(dir).data.entries[date].note, 'First edit after recovery');
+ } finally {
+  fs.rmSync(dir, { recursive: true, force: true });
+ }
+});
