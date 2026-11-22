@@ -1,67 +1,61 @@
-# Dayline
+# DayLine
 
-Windows-приложение для личного экранного времени, статистики и дневника. Текущая версия — **1.4.0**.
+**See where your day went.** DayLine is a Windows app that tracks time in the active window and puts it beside a focus timer and a daily journal.
 
-Dayline считает время окна на переднем плане: Telegram за другим окном не получает минуты только потому, что запущен. После работы можно посмотреть распределение времени, отметить настроение и записать итог дня.
+[Download DayLine for Windows x64](https://github.com/whitcore/DayLine/releases/latest) · [Changelog](CHANGELOG.md)
 
-## Возможности
+![DayLine in Graphite with the Today dashboard and an expanded Firefox activity list](docs/screenshots/dayline-cover.png)
 
-- Учёт всех определяемых программ, пауза, исключение бездействия, сна и блокировки.
-- Статистика по дням, лента активности и настраиваемый рейтинг фокуса.
-- Свои категории и доли времени, например работа, учёба и отдых в одном браузере.
-- Список доменов Firefox с отдельными категориями, учитываемыми в статистике.
-- Иконки из EXE или своей картинки; скрытие программ с сохранением истории.
-- Дневник, настроение и таймер работы/перерыва.
-- Четыре темы, локальный Inter, полные/мягкие/системные анимации.
-- Локальные данные, экспорт и восстановление копии; сервер не нужен.
+## What actually counted
 
-## Установка
+Firefox might be open from breakfast to dinner. DayLine measures the time you spend in its foreground window while tracking is active. The daily timeline shows the stretches you spent coding, reading or chatting, with gaps for time away. Tracking pauses when Windows locks or reaches your chosen idle threshold. You can also pause from the system tray.
 
-Собранный установщик: `release/1.4.0/Dayline-Setup-1.4.0.exe`. Артефакты сборки не хранятся в Git.
+![The Today dashboard showing 5 hours and 21 minutes of active time, the daily focus score and the activity timeline](docs/screenshots/today.png)
 
-Установка для текущего пользователя Windows 10/11 x64. Для готового приложения Node.js, Python и .NET SDK не нужны. Установщик пока не имеет цифровой подписи издателя.
+The screenshots use a demonstration profile.
 
-Перед обновлением выйди из Dayline через меню значка в трее. Профиль удалять не нужно: он расположен отдельно от приложения и сохраняется при обновлении.
+## A closer look at Firefox
 
-## Разработка
+Expand Firefox in the app list to see time by hostname. In the example, GitHub took 28 minutes, the MDN docs took 19 and YouTube took another 19. The saved browser detail is the hostname. The Firefox setting in DayLine controls whether those details are collected. Other browsers are tracked at app level.
 
-Нужны Windows 10/11 x64, Git и Node.js 24+ с npm. Помощники Windows собираются PowerShell через встроенный .NET Framework; Visual Studio не требуется.
+![Firefox expanded to show time and categories for GitHub, MDN and YouTube](docs/screenshots/firefox.png)
+
+Give a site its own category or let it inherit the browser’s category. Apps can use one category or split their time by percentage. The daily focus score can show a share of active time or progress toward a time goal you set.
+
+## See the shape of a week
+
+Open Statistics to review seven days, pick your own date range or see all recorded time. Filter the chart by category to see when your study time landed, then open a day for its timeline. The app list below the chart shows how time broke down during the selected period.
+
+![The same sample history viewed as a custom date range and as all time](docs/screenshots/statistics.png)
+
+## Make room for the next stretch
+
+Start a work interval from Today. The focus timer defaults to 25 minutes of work and a five-minute break, with both durations adjustable. When the day winds down, use the journal to mark your mood, write down what you got done or leave yourself a note for tomorrow.
+
+![The DayLine journal with a date list, mood selector and an example note](docs/screenshots/journal.png)
+
+DayLine includes English and Russian, five themes and configurable motion. Graphite keeps the focus on the screen-time total, while the vivid and soft themes change the palette.
+
+![Screen-time summaries in Graphite, Vivid dark and Soft light](docs/screenshots/themes.png)
+
+## Install and update
+
+1. Download **Dayline-Setup-1.5.2.exe** from [GitHub Releases](https://github.com/whitcore/DayLine/releases/latest).
+2. Run the installer on Windows 10 or 11 x64. It installs for the current user. The installer is unsigned and Windows SmartScreen may show a warning.
+3. For an update, save a backup in Settings and exit DayLine from the tray before running the installer.
+
+The installer includes the runtime. Activity and journal entries stay on your computer in `%APPDATA%\Dayline`. Settings lets you open that folder, export a backup or restore one. Recorded history starts with your first run.
+
+## Build and verify
+
+On Windows x64 with Node.js 24 and npm:
 
 ```powershell
 npm.cmd ci
 npm.cmd start
-```
-
-Сборка установщика:
-
-```powershell
+npm.cmd test
+npm.cmd run test:desktop
 npm.cmd run package
 ```
 
-Результат появится в `release/1.4.0`. `npm.cmd run dev` запускает только интерфейс Vite; для учёта времени нужен Electron, запускаемый через `npm.cmd start`.
-
-## Проверки
-
-```powershell
-npm.cmd test
-npm.cmd run test:desktop
-node scripts/test-1.4.mjs
-node scripts/test-site-motion.mjs
-node scripts/test-upgrade.mjs
-```
-
-UI-проверки требуют открытого рабочего стола Windows. Они создают отдельные профили и не подставляют демонстрационные записи в личные данные. `DAYLINE_TEST_EXE` позволяет проверять собранный EXE вместо исходников.
-
-`node scripts/profile-ui.mjs` измеряет переключения разделов на искусственном наборе программ. Результаты и снимки помещаются в `test-results`, исключённую из Git. Измерения на одном компьютере не гарантируют одинаковую частоту кадров на любом оборудовании.
-
-## Данные и ограничения
-
-Профиль и дневник находятся в `%APPDATA%\Dayline\dayline.json`, кэш иконок — в `%APPDATA%\Dayline\icons`. Копию можно сохранить или восстановить из настроек приложения. Сборка и переустановка не удаляют эти данные.
-
-Детализация сайтов работает в Firefox, если Windows позволяет прочитать адрес активной вкладки. Сохраняются только домены, без URL-путей и поисковых запросов. Названия вкладок, снимки экрана и нажатые клавиши не записываются. Другие браузеры учитываются как программы целиком. Прошлое время до первого запуска восстановить нельзя.
-
-Для чтения, видео и игр с геймпадом подбери подходящий порог бездействия. По умолчанию программы короче минуты скрыты из списка, но их время остаётся в общей сумме.
-
-Исходники, тесты и ресурсы приложения входят в репозиторий. Личные профили, резервные копии, архив прежнего проекта, локальные отчёты, логи, установщики и секреты исключены через `.gitignore`.
-
-Подробнее: [устройство приложения](docs/ARCHITECTURE.md), [история изменений](CHANGELOG.md).
+The package command produces the NSIS installer in `release/1.5.2`. The desktop check launches Electron with a separate test profile. For implementation details, see the [architecture notes](docs/ARCHITECTURE.md).
