@@ -1,68 +1,195 @@
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
-using System.Runtime.InteropServices;
-using System.Diagnostics;
-using System.Windows.Automation;
 using System.Web.Script.Serialization;
+using System.Windows.Automation;
 using Accessibility;
-using System.Collections.Generic;
 
-// Separate process: an unresponsive accessibility provider cannot stall time tracking.
+// Keep accessibility calls off the time tracker so a stuck browser cannot stall it.
 public class BrowserProbe {
- [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
- [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h,out uint pid);
- [DllImport("user32.dll",CharSet=CharSet.Unicode)] static extern int GetWindowText(IntPtr h,StringBuilder s,int count);
- [DllImport("oleacc.dll")] static extern int AccessibleObjectFromWindow(IntPtr h,uint objectId,ref Guid id,[In,Out,MarshalAs(UnmanagedType.IUnknown)] ref object result);
- [DllImport("oleacc.dll")] static extern int AccessibleChildren(IAccessible container,int start,int count,[Out,MarshalAs(UnmanagedType.LPArray,SizeParamIndex=2)] object[] children,out int obtained);
- static string Host(string address){Uri uri;if(!String.IsNullOrEmpty(address)&&address.IndexOf(' ')<0&&Uri.TryCreate(address.Contains("://")?address:"https://"+address,UriKind.Absolute,out uri)&&(uri.Scheme=="http"||uri.Scheme=="https")&&uri.Host.Contains("."))return uri.IdnHost.ToLowerInvariant();return "";}
- static string MsaaAddress(IntPtr h){
-  Guid iid=typeof(IAccessible).GUID;object root=null;if(AccessibleObjectFromWindow(h,0xFFFFFFFC,ref iid,ref root)!=0)return "";
-  var queue=new Queue<IAccessible>();if(root is IAccessible)queue.Enqueue((IAccessible)root);int visited=0;
-  while(queue.Count>0&&visited++<600){var item=queue.Dequeue();try{
-   int role=Convert.ToInt32(item.get_accRole(0));if(role==40)continue; // Never traverse page documents.
-   if(role==42||role==46){int state=Convert.ToInt32(item.get_accState(0));if((state&4)==0&&(state&0x8000)==0){string found=Host(item.get_accValue(0));if(found.Length>0)return found;}}
-   int count=Math.Min(item.accChildCount,150);if(count<=0)continue;var children=new object[count];int obtained;
-   if(AccessibleChildren(item,0,count,children,out obtained)>=0)for(int i=0;i<obtained;i++){var child=children[i] as IAccessible;if(child!=null)queue.Enqueue(child);else if(children[i] is int){int id=(int)children[i];int cr=Convert.ToInt32(item.get_accRole(id));if((cr==42||cr==46)&&(Convert.ToInt32(item.get_accState(id))&4)==0){string found=Host(item.get_accValue(id));if(found.Length>0)return found;}}}
-  }catch{}}
-  return "";
- }
- [MTAThread] public static void Main(string[] args) {
-  Console.OutputEncoding=new UTF8Encoding(false);var json=new JavaScriptSerializer();
-  while(true){string domain="",status="inactive";long window=0;
-   try{
-    IntPtr h=GetForegroundWindow();if(args.Length>0&&args[0]=="--inspect")foreach(var p in Process.GetProcessesByName("firefox"))if(p.MainWindowHandle!=IntPtr.Zero){h=p.MainWindowHandle;break;}window=h.ToInt64();uint pid;GetWindowThreadProcessId(h,out pid);
-    if(Process.GetProcessById((int)pid).ProcessName.Equals("firefox",StringComparison.OrdinalIgnoreCase)){
-     status="unavailable";
-     var title=new StringBuilder(2048);GetWindowText(h,title,title.Capacity);
-     string caption=title.ToString().ToLowerInvariant();
-     if(caption.Contains("private browsing")||caption.Contains("приватн"))status="private";
-     else {
-      domain=MsaaAddress(h);if(domain.Length>0)status="available";
-      if(domain.Length==0){var root=AutomationElement.FromHandle(h);
-      var condition=new OrCondition(new PropertyCondition(AutomationElement.AutomationIdProperty,"urlbar-input"),new PropertyCondition(AutomationElement.ControlTypeProperty,ControlType.Edit));
-      var edits=root.FindAll(TreeScope.Descendants,condition);
-      for(int i=0;i<edits.Count&&i<40;i++){
-       var e=edits[i];var current=e.Current;
-       string label=current.Name.ToLowerInvariant(),id=current.AutomationId;
-       // Never inspect form fields in page content, nor text being entered into the address bar.
-       if(id!="urlbar-input"&&!label.Contains("search with")&&!label.Contains("enter address")&&!label.Contains("введите адрес")&&!label.Contains("поиск в google")&&!label.Contains("поиск в яндекс"))continue;
-       if(current.HasKeyboardFocus||current.IsOffscreen)continue;
-       object pattern;
-       if(e.TryGetCurrentPattern(ValuePattern.Pattern,out pattern)){
-        string address=((ValuePattern)pattern).Current.Value;Uri uri;
-        if(address.IndexOf(' ')<0&&Uri.TryCreate(address.Contains("://")?address:"https://"+address,UriKind.Absolute,out uri)&&(uri.Scheme=="http"||uri.Scheme=="https")&&uri.Host.Contains(".")){
-         domain=uri.IdnHost.ToLowerInvariant();status="available";break;
-        }
-       }
-      }}
-     }
+    [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr window, out uint pid);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr window, StringBuilder text, int size);
+    [DllImport("oleacc.dll")] static extern int AccessibleObjectFromWindow(IntPtr window, uint objectId, ref Guid id, [In, Out, MarshalAs(UnmanagedType.IUnknown)] ref object result);
+    [DllImport("oleacc.dll")] static extern int AccessibleChildren(IAccessible parent, int start, int count, [Out, MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 2)] object[] children, out int obtained);
+
+    const int DocumentRole = 0x0f;
+    const int TextRole = 0x2a;
+    const int ComboBoxRole = 0x2e;
+    const int UnreadableState = 0x00010000 | 0x00008000 | 0x00000004; // Offscreen, invisible or focused.
+
+    static string Host(string address) {
+        if (String.IsNullOrEmpty(address) || address.IndexOf(' ') >= 0) return "";
+        Uri uri;
+        if (!Uri.TryCreate(address.Contains("://") ? address : "https://" + address, UriKind.Absolute, out uri)) return "";
+        return (uri.Scheme == "http" || uri.Scheme == "https") &&
+               uri.HostNameType == UriHostNameType.Dns && uri.Host.Contains(".") && uri.UserInfo.Length == 0
+            ? uri.IdnHost.ToLowerInvariant()
+            : "";
     }
-   }catch{}
-   if(args.Length>0&&args[0]=="--inspect"){Console.WriteLine(json.Serialize(new {status=status,hasDomain=domain.Length>0}));return;}
-   Console.WriteLine(json.Serialize(new {domain=domain,status=status,window=window}));Console.Out.Flush();
-   if(args.Length>0&&args[0]=="--once")return;
-   Thread.Sleep(1000);
-  }
- }
+
+    static Condition ControlId(string id, ControlType type) {
+        return new AndCondition(
+            new PropertyCondition(AutomationElement.AutomationIdProperty, id),
+            new PropertyCondition(AutomationElement.ControlTypeProperty, type));
+    }
+
+    static bool InBrowserInterface(AutomationElement root, AutomationElement element) {
+        var walker = TreeWalker.RawViewWalker;
+        for (int depth = 0; element != null && depth < 32; depth++) {
+            if (Automation.Compare(root, element)) return true;
+            if (element.Current.ControlType == ControlType.Document) return false;
+            element = walker.GetParent(element);
+        }
+        return false;
+    }
+
+    static string ReadHost(AutomationElement address) {
+        if (address == null || address.Current.HasKeyboardFocus || address.Current.IsOffscreen) return "";
+        object pattern;
+        return address.TryGetCurrentPattern(ValuePattern.Pattern, out pattern)
+            ? Host(((ValuePattern)pattern).Current.Value)
+            : "";
+    }
+
+    static string ChromeHost(AutomationElement root, out bool privateWindow) {
+        privateWindow = false;
+        // Chromium's native toolbar IDs. Web content is outside this toolbar.
+        var toolbar = root.FindFirst(TreeScope.Descendants, ControlId("view_1000", ControlType.ToolBar));
+        if (!InBrowserInterface(root, toolbar) || toolbar.Current.IsOffscreen) return "";
+        var profile = toolbar.FindFirst(TreeScope.Descendants, ControlId("view_1018", ControlType.Button));
+        var address = toolbar.FindFirst(TreeScope.Descendants, ControlId("view_1012", ControlType.Edit));
+        if (profile == null || profile.Current.IsOffscreen || address == null) return "";
+
+        // Profile indicators are localized. Limit this scan to supported toolbar languages.
+        string label = address.Current.Name.ToLowerInvariant();
+        if (label != "address and search bar" && label != "адресная строка и строка поиска") return "";
+        string name = profile.Current.Name.ToLowerInvariant();
+        if (String.IsNullOrWhiteSpace(name)) return "";
+        privateWindow = name.Contains("incognito") || name.Contains("инкогнито") ||
+                        name.Contains("guest") || name.Contains("гост");
+        return privateWindow ? "" : ReadHost(address);
+    }
+
+    static bool FirefoxAddressLabel(string name) {
+        string label = (name ?? "").ToLowerInvariant();
+        return label.Contains("search with") || label.Contains("enter address") ||
+               label.Contains("введите адрес") || label.Contains("поиск в google") ||
+               label.Contains("поиск в яндекс");
+    }
+
+    static string FirefoxMsaaHost(IntPtr window) {
+        var iid = typeof(IAccessible).GUID;
+        object root = null;
+        if (AccessibleObjectFromWindow(window, 0xfffffffc, ref iid, ref root) != 0 || !(root is IAccessible)) return "";
+        var queue = new Queue<IAccessible>();
+        queue.Enqueue((IAccessible)root);
+        int visited = 0;
+        while (queue.Count > 0 && visited++ < 600) {
+            var item = queue.Dequeue();
+            try {
+                int role = Convert.ToInt32(item.get_accRole(0));
+                if (role == DocumentRole) continue;
+                string host = FirefoxMsaaValue(item, 0, role);
+                if (host.Length != 0) return host;
+
+                int count = Math.Min(item.accChildCount, 150);
+                if (count == 0) continue;
+                var children = new object[count];
+                int obtained;
+                if (AccessibleChildren(item, 0, count, children, out obtained) < 0) continue;
+                for (int i = 0; i < obtained; i++) {
+                    var child = children[i] as IAccessible;
+                    if (child != null) queue.Enqueue(child);
+                    else if (children[i] is int) {
+                        int id = (int)children[i];
+                        host = FirefoxMsaaValue(item, id, Convert.ToInt32(item.get_accRole(id)));
+                        if (host.Length != 0) return host;
+                    }
+                }
+            } catch (COMException) {
+                // Accessibility elements can disappear while the browser navigates.
+            }
+        }
+        return "";
+    }
+
+    static string FirefoxMsaaValue(IAccessible item, int id, int role) {
+        if (role != TextRole && role != ComboBoxRole) return "";
+        if ((Convert.ToInt32(item.get_accState(id)) & UnreadableState) != 0) return "";
+        return Host(item.get_accValue(id));
+    }
+
+    static string FirefoxHost(IntPtr window, out bool privateWindow) {
+        var title = new StringBuilder(2048);
+        GetWindowText(window, title, title.Capacity);
+        string caption = title.ToString().ToLowerInvariant();
+        privateWindow = caption.Contains("private browsing") || caption.Contains("приватн");
+        if (privateWindow) return "";
+
+        string host = FirefoxMsaaHost(window);
+        if (host.Length != 0) return host;
+        var root = AutomationElement.FromHandle(window);
+        var address = root.FindFirst(TreeScope.Descendants, ControlId("urlbar-input", ControlType.Edit));
+        if (InBrowserInterface(root, address)) return ReadHost(address);
+        var edits = root.FindAll(TreeScope.Descendants,
+            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Edit));
+        for (int i = 0; i < edits.Count && i < 40; i++) {
+            var edit = edits[i];
+            if (!FirefoxAddressLabel(edit.Current.Name) || !InBrowserInterface(root, edit)) continue;
+            host = ReadHost(edit);
+            if (host.Length != 0) return host;
+        }
+        return "";
+    }
+
+    [MTAThread]
+    public static void Main(string[] args) {
+        Console.OutputEncoding = new UTF8Encoding(false);
+        var json = new JavaScriptSerializer();
+        bool inspect = args.Length > 0 && args[0] == "--inspect";
+        while (true) {
+            string domain = "", status = "inactive", exe = "";
+            IntPtr window = GetForegroundWindow();
+            try {
+                if (inspect) {
+                    string name = args.Length > 1 && args[1] == "chrome" ? "chrome" : "firefox";
+                    foreach (var candidate in Process.GetProcessesByName(name)) {
+                        using (candidate) {
+                            if (candidate.MainWindowHandle == IntPtr.Zero) continue;
+                            window = candidate.MainWindowHandle;
+                            break;
+                        }
+                    }
+                }
+                uint pid;
+                GetWindowThreadProcessId(window, out pid);
+                using (var process = Process.GetProcessById((int)pid))
+                    exe = process.ProcessName.ToLowerInvariant() + ".exe";
+                if (exe == "chrome.exe" || exe == "firefox.exe") {
+                    status = "unavailable";
+                    bool privateWindow;
+                    domain = exe == "chrome.exe"
+                        ? ChromeHost(AutomationElement.FromHandle(window), out privateWindow)
+                        : FirefoxHost(window, out privateWindow);
+                    if (!inspect && window != GetForegroundWindow()) domain = "";
+                    status = privateWindow ? "private" : domain.Length > 0 ? "available" : "unavailable";
+                }
+            } catch {
+                // A browser can close or rebuild its accessibility tree between samples.
+                domain = "";
+            }
+            if (inspect) {
+                Console.WriteLine(json.Serialize(new { status = status, hasDomain = domain.Length > 0 }));
+                return;
+            }
+            Console.WriteLine(json.Serialize(new { domain = domain, status = status, window = window.ToInt64(), exe = exe }));
+            Console.Out.Flush();
+            if (args.Length > 0 && args[0] == "--once") return;
+            Thread.Sleep(1000);
+        }
+    }
 }

@@ -1,7 +1,7 @@
 {
   "name": "dayline",
   "productName": "Dayline",
-  "version": "1.5.3",
+  "version": "1.6.0",
   "description": "Личное экранное время, настроение и итоги дня",
   "author": "Dayline",
   "private": true,
@@ -38,7 +38,7 @@
     "productName": "Dayline",
     "asar": true,
     "directories": {
-      "output": "release/1.5.3"
+      "output": "release/1.6.0"
     },
     "files": [
       "dist/**/*",

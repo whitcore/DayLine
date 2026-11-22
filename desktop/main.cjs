@@ -37,6 +37,7 @@ const {
 } = require("./model.cjs");
 const { IconCache } = require("./icons.cjs");
 const english = require("./messages.en.json");
+const browsers = require("./browsers.json");
 app.setName("Dayline");
 nativeTheme.themeSource = "dark";
 if (process.platform === "win32") app.setAppUserModelId("app.dayline.desktop");
@@ -155,7 +156,7 @@ if (!app.requestSingleInstanceLock({ backgroundLaunch })) {
       siteCategories: storage.data.siteCategories,
       iconRevision: icons.revision,
       ...(iconRevision !== icons.revision ? { icons: icons.values } : {}),
-      browserStatus: storage.data.settings.trackSites
+      browserStatus: storage.data.settings.trackBrowserSites
         ? browserSample.status
         : "disabled",
       entries: storage.data.entries,
@@ -195,36 +196,49 @@ if (!app.requestSingleInstanceLock({ backgroundLaunch })) {
     }
     icons.load(id, storage.data.apps[id]);
   }
+  function stopBrowserProbe() {
+    clearTimeout(browserTimer);
+    const running = browserProbe;
+    browserProbe = null;
+    browserSample = { status: "waiting", domain: "" };
+    running?.kill();
+  }
   function startBrowserProbe() {
-    if (quitting || testMode || !storage.data.settings.trackSites) return;
+    if (quitting || testMode || browserProbe || !storage.data.settings.trackBrowserSites) return;
     const executable = app.isPackaged
       ? path.join(process.resourcesPath, "BrowserProbe.exe")
       : path.resolve(__dirname, "../native/BrowserProbe.exe");
     browserReceived = Date.now();
     browserSample = { status: "waiting", domain: "" };
-    browserProbe = spawn(executable, [], {
+    const running = spawn(executable, [], {
       windowsHide: true,
       stdio: ["ignore", "pipe", "ignore"],
     });
-    const lines = createInterface({ input: browserProbe.stdout });
+    browserProbe = running;
+    const lines = createInterface({ input: running.stdout });
     lines.on("line", (line) => {
+      if (browserProbe !== running) return;
       try {
         const sample = JSON.parse(line.replace(/^\uFEFF/, ""));
         browserReceived = Date.now();
         browserSample = {
           status: sample.status,
-          domain: validDomain(sample.domain) ? sample.domain : "",
+          domain: sample.status === "available" && validDomain(sample.domain) ? sample.domain : "",
           window: sample.window,
+          exe: sample.exe,
         };
       } catch {}
     });
-    browserProbe.on("error", () => {
+    running.on("close", () => {
+      if (browserProbe !== running) return;
       browserSample = { status: "unavailable", domain: "" };
-    });
-    browserProbe.on("exit", () => {
       browserProbe = null;
-      if (!quitting && storage.data.settings.trackSites)
+      if (!quitting && storage.data.settings.trackBrowserSites)
         browserTimer = setTimeout(startBrowserProbe, 5000);
+    });
+    running.on("error", () => {
+      if (browserProbe === running)
+        browserSample = { status: "unavailable", domain: "" };
     });
   }
   function startProbe() {
@@ -246,9 +260,11 @@ if (!app.requestSingleInstanceLock({ backgroundLaunch })) {
         lastReceived = Date.now();
         lastSample = s;
         remember(s);
+        const exe = s.exe.toLowerCase();
         const domain =
-          storage.data.settings.trackSites &&
-          s.exe.toLowerCase() === "firefox.exe" &&
+          storage.data.settings.trackBrowserSites &&
+          Object.hasOwn(browsers, exe) &&
+          browserSample.exe === exe &&
           Date.now() - browserReceived < 2200 &&
           browserSample.window === s.window
             ? browserSample.domain
@@ -627,7 +643,7 @@ if (!app.requestSingleInstanceLock({ backgroundLaunch })) {
           ![0, 1, 3, 5, 10, 15, 30].includes(merged.idleMinutes) ||
           typeof merged.launchAtLogin !== "boolean" ||
           typeof merged.hideShort !== "boolean" ||
-          typeof merged.trackSites !== "boolean"
+          typeof merged.trackBrowserSites !== "boolean"
         )
           throw Error("Invalid settings");
         if (app.isPackaged && !testMode && merged.launchAtLogin !== storage.data.settings.launchAtLogin)
@@ -637,7 +653,7 @@ if (!app.requestSingleInstanceLock({ backgroundLaunch })) {
             args: loginArgs,
           });
         const sitesChanged =
-          merged.trackSites !== storage.data.settings.trackSites;
+          merged.trackBrowserSites !== storage.data.settings.trackBrowserSites;
         storage.data.settings = {
           ...merged,
           launchAtLogin: app.isPackaged ? merged.launchAtLogin : false,
@@ -648,10 +664,8 @@ if (!app.requestSingleInstanceLock({ backgroundLaunch })) {
           breakMinutes: storage.data.settings.focusBreakMinutes,
         });
         if (sitesChanged) {
-          clearTimeout(browserTimer);
-          if (browserProbe) browserProbe.kill();
-          else if (merged.trackSites) startBrowserProbe();
-          browserSample = { status: "waiting", domain: "" };
+          stopBrowserProbe();
+          startBrowserProbe();
         }
         tracker.idleMinutes = merged.idleMinutes;
         tracker.reset();
@@ -714,9 +728,8 @@ if (!app.requestSingleInstanceLock({ backgroundLaunch })) {
           breakMinutes: incoming.settings.focusBreakMinutes,
         });
         icons.restore(incomingIcons, incoming.apps);
-        clearTimeout(browserTimer);
-        if (browserProbe) browserProbe.kill();
-        else startBrowserProbe();
+        stopBrowserProbe();
+        startBrowserProbe();
         tracker.idleMinutes = incoming.settings.idleMinutes;
         storage.dirty = true;
         persist();
@@ -780,10 +793,9 @@ if (!app.requestSingleInstanceLock({ backgroundLaunch })) {
   app.on("before-quit", () => {
     quitting = true;
     clearTimeout(restartTimer);
-    clearTimeout(browserTimer);
+    stopBrowserProbe();
     if (storage) persist();
     if (probe) probe.kill();
-    if (browserProbe) browserProbe.kill();
     if (tray) tray.destroy();
   });
 }

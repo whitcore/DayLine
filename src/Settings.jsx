@@ -151,11 +151,14 @@ export default function Settings({ data, onSettings, notify, onPrograms }) {
           />
         </div>
         <div className="setting-row">
-          <strong>{t("Сайты в Firefox")}</strong>
+          <div>
+            <strong>{t("Учёт сайтов")}</strong>
+            <p>{t("Домены Chrome и Firefox. По умолчанию выключено.")}</p>
+          </div>
           <Toggle
-            label={t("Учитывать сайты Firefox")}
-            checked={settings.trackSites}
-            onChange={() => setting({ trackSites: !settings.trackSites })}
+            label={t("Учёт сайтов")}
+            checked={settings.trackBrowserSites}
+            onChange={() => setting({ trackBrowserSites: !settings.trackBrowserSites })}
           />
         </div>
         <div className="setting-row">

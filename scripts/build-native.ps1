@@ -13,4 +13,4 @@ if (!(Test-Path -LiteralPath $browserOutput) -or (Get-Item -LiteralPath $browser
  $frameworkDir = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\WPF'
  Add-Type -TypeDefinition ([IO.File]::ReadAllText($browserSource)) -ReferencedAssemblies 'System.dll','System.Web.Extensions.dll','Accessibility.dll',(Join-Path $frameworkDir 'UIAutomationClient.dll'),(Join-Path $frameworkDir 'UIAutomationTypes.dll'),(Join-Path $frameworkDir 'WindowsBase.dll') -OutputAssembly $browserOutput -OutputType ConsoleApplication
 }
-Write-Output 'Native foreground and Firefox trackers compiled'
+Write-Output 'Native foreground and browser trackers compiled'

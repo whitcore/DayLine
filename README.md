@@ -14,13 +14,17 @@ Firefox might be open from breakfast to dinner. DayLine measures the time you sp
 
 The screenshots use a demonstration profile.
 
-## A closer look at Firefox
+## Website tracking in Chrome and Firefox
 
-Expand Firefox in the app list to see time by hostname. In the example, GitHub took 28 minutes, the MDN docs took 19 and YouTube took another 19. The saved browser detail is the hostname. The Firefox setting in DayLine controls whether those details are collected. Other browsers are tracked at app level.
+**Website tracking starts off.** To turn it on, open **Settings → Time tracking → Website tracking**. The switch covers Chrome and Firefox. After updating from a Firefox-only version, turn it on again to start collecting hostnames in both browsers.
+
+Expand either browser in the app list to see time by hostname. In the Firefox example, GitHub took 28 minutes, the MDN docs took 19 and YouTube took another 19. Chrome reads its address bar through Windows accessibility on English and Russian browser interfaces. When DayLine cannot identify the address bar or recognizes a private window, it records the browser's app time.
 
 ![Firefox expanded to show time and categories for GitHub, MDN and YouTube](docs/screenshots/firefox.png)
 
 Give a site its own category or let it inherit the browser’s category. Apps can use one category or split their time by percentage. The daily focus score can show a share of active time or progress toward a time goal you set.
+
+Turn **Website tracking** off any time. New browser activity appears as app time. Existing hostname history stays in your local profile.
 
 ## See the shape of a week
 
@@ -40,11 +44,21 @@ DayLine includes English and Russian, five themes and configurable motion. Graph
 
 ## Install and update
 
-1. Download **Dayline-Setup-1.5.3.exe** from [GitHub Releases](https://github.com/whitcore/DayLine/releases/latest).
+1. Download **Dayline-Setup-1.6.0.exe** from [GitHub Releases](https://github.com/whitcore/DayLine/releases/latest).
 2. Run the installer on Windows 10 or 11 x64. It installs for the current user. The installer is unsigned and Windows SmartScreen may show a warning.
 3. For an update, save a backup in Settings and exit DayLine from the tray before running the installer.
 
-The installer includes the runtime. Activity and journal entries stay on your computer in `%APPDATA%\Dayline`. Settings lets you open that folder, export a backup or restore one. Recorded history starts with your first run.
+The installer includes the runtime. Recorded history starts with your first run.
+
+## Privacy and local data
+
+DayLine tracks the app in the foreground. Its local profile stores activity intervals, app names and executable paths for app icons, plus your categories, settings and journal entries. With website tracking enabled, the browser helper extracts the hostname from the visible address bar before returning it to the app. The history stores a hostname such as `developer.mozilla.org` alongside the interval. Full URLs, query strings, page titles and screenshots stay out of the history.
+
+DayLine works locally without an account. The profile is in `%APPDATA%\Dayline`. In Settings, open **Data folder** to inspect it or **Save backup** to export it. The exported JSON can include browser hostnames, app paths and journal entries, so treat it as personal data.
+
+## Source code and licensing
+
+The desktop app, Windows helpers and installer configuration are public for inspection and local builds. The project has yet to adopt an open-source license, so default copyright applies to reuse and redistribution.
 
 ## Build and verify
 
@@ -58,4 +72,4 @@ npm.cmd run test:desktop
 npm.cmd run package
 ```
 
-The package command produces the NSIS installer in `release/1.5.3`. The desktop check launches Electron with a separate test profile. For implementation details, see the [architecture notes](docs/ARCHITECTURE.md).
+The package command produces the NSIS installer in `release/1.6.0`. The desktop check launches Electron with a separate test profile. For implementation details, see the [architecture notes](docs/ARCHITECTURE.md).

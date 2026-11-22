@@ -35,7 +35,7 @@ function initialState() {
       idleMinutes: 3,
       launchAtLogin: false,
       hideShort: true,
-      trackSites: true,
+      trackBrowserSites: false,
       ...DEFAULT_FOCUS,
     },
   };
@@ -277,10 +277,12 @@ function validateState(data) {
     throw Error("Invalid settings");
   data.settings.hideShort ??= true;
   data.settings = focusSettings(data.settings);
-  data.settings.trackSites ??= true;
+  // The old preference covered Firefox only and used an opt-out default.
+  data.settings.trackBrowserSites ??= false;
+  delete data.settings.trackSites;
   if (
     typeof data.settings.hideShort !== "boolean" ||
-    typeof data.settings.trackSites !== "boolean"
+    typeof data.settings.trackBrowserSites !== "boolean"
   )
     throw Error("Invalid settings");
   data.types ??= structuredClone(DEFAULT_TYPES);

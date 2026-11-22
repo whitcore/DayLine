@@ -40,6 +40,7 @@ import {
 import { ChoiceSelect } from "./DatePicker.jsx";
 import { cssEaseOut, easeOut } from "./motion-policy.js";
 import { categories } from "./shared.js";
+import browsers from "../desktop/browsers.json";
 const Context = createContext(null);
 const api = window.dayline;
 const allocation = (a) => a.allocations || { [a.category || "neutral"]: 100 };
@@ -395,7 +396,7 @@ function MixEditor({ app, onClose }) {
       }}
     >
       <p className="dialog-description">
-        {app.name} · {/firefox/i.test(app.id)
+        {app.name} · {Object.hasOwn(browsers, app.id.toLowerCase())
           ? t("Доли применятся к сайтам без своей категории и времени без адреса.")
           : t("Доли применятся ко всему записанному времени программы.")}
       </p>
@@ -742,7 +743,7 @@ function Sites({ app, id, groupRef, closing, editing }) {
           <div role="cell">
             {data.browserStatus === "disabled"
               ? t("Учёт сайтов выключен в настройках.")
-              : t("Сайты появятся после использования Firefox.")}
+              : t("Сайты появятся после использования {0}.", browsers[app.id.toLowerCase()])}
           </div>
         </div>
       )}
@@ -857,6 +858,71 @@ function useSitesDisclosure() {
   return { id, groupRef, state, toggle };
 }
 
+function ProgramItem({ app, icons, editing, sites }) {
+  const { t } = useLocale();
+  const { setModal } = useContext(Context);
+  const open = sites?.state === "open";
+  const renderSites = sites && sites.state !== "closed";
+  return (
+    <div className="program-item" role="presentation">
+      <div
+        className="program-row program-columns"
+        role="row"
+        data-app-id={app.id}
+        data-expanded={open || undefined}
+      >
+        <div className="program-name" role="rowheader">
+          <AppIcon item={app} icons={icons} editing={editing} />
+          {sites ? (
+            <button
+              className="browser-expand"
+              aria-label={t("Сайты {0}", browsers[app.id.toLowerCase()])}
+              aria-expanded={open}
+              aria-controls={renderSites ? sites.id : undefined}
+              onClick={sites.toggle}
+              title={app.name}
+            >
+              <ChevronDown className="browser-chevron" size={16} aria-hidden="true" />
+              <strong>{app.name}</strong>
+            </button>
+          ) : (
+            <strong title={app.name}>{app.name}</strong>
+          )}
+        </div>
+        <div className="program-category" role="cell">
+          <CategorySelect app={app} />
+        </div>
+        <div className={"program-time" + (editing ? " time-with-action" : "")} role="cell">
+          <Duration ms={app.ms} />
+          {editing && (
+            <button
+              className="remove-program icon-button"
+              aria-label={t("Убрать ") + app.name + t(" из списка")}
+              onClick={() => setModal({ kind: "hide", app })}
+            >
+              <Trash2 size={15} />
+            </button>
+          )}
+        </div>
+      </div>
+      {renderSites && (
+        <Sites
+          app={app}
+          id={sites.id}
+          groupRef={sites.groupRef}
+          closing={!open}
+          editing={editing}
+        />
+      )}
+    </div>
+  );
+}
+
+function BrowserProgramItem(props) {
+  const sites = useSitesDisclosure();
+  return <ProgramItem {...props} sites={sites} />;
+}
+
 export default function ProgramList({
   apps,
   icons,
@@ -873,7 +939,6 @@ export default function ProgramList({
   const [filter, setFilter] = useState("all");
   const [short, setShort] = useState(false);
   const [editing, setEditing] = useState(false);
-  const sites = useSitesDisclosure();
   const category = types[filter] ? filter : "all";
   const query = search.trim().toLocaleLowerCase(locale);
   const listed = apps.filter((app) => !app.hidden);
@@ -954,62 +1019,10 @@ export default function ProgramList({
           </div>
           <div className="program-rows" role="rowgroup">
             {shown.map((app) => {
-              const firefox = app.id.toLowerCase() === "firefox.exe";
-              const open = firefox && sites.state === "open";
-              const renderSites = firefox && sites.state !== "closed";
-              return (
-                <div className="program-item" key={app.id} role="presentation">
-                  <div
-                    className="program-row program-columns"
-                    role="row"
-                    data-app-id={app.id}
-                    data-expanded={open || undefined}
-                  >
-                    <div className="program-name" role="rowheader">
-                      <AppIcon item={app} icons={icons} editing={editing} />
-                      {firefox ? (
-                        <button
-                          className="browser-expand"
-                          aria-label={t("Сайты Firefox")}
-                          aria-expanded={open}
-                          aria-controls={renderSites ? sites.id : undefined}
-                          onClick={sites.toggle}
-                          title={app.name}
-                        >
-                          <ChevronDown className="browser-chevron" size={16} aria-hidden="true" />
-                          <strong>{app.name}</strong>
-                        </button>
-                      ) : (
-                        <strong title={app.name}>{app.name}</strong>
-                      )}
-                    </div>
-                    <div className="program-category" role="cell">
-                      <CategorySelect app={app} />
-                    </div>
-                    <div className={"program-time" + (editing ? " time-with-action" : "")} role="cell">
-                      <Duration ms={app.ms} />
-                      {editing && (
-                        <button
-                          className="remove-program icon-button"
-                          aria-label={t("Убрать ") + app.name + t(" из списка")}
-                          onClick={() => setModal({ kind: "hide", app })}
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  {renderSites && (
-                    <Sites
-                      app={app}
-                      id={sites.id}
-                      groupRef={sites.groupRef}
-                      closing={!open}
-                      editing={editing}
-                    />
-                  )}
-                </div>
-              );
+              const Item = Object.hasOwn(browsers, app.id.toLowerCase())
+                ? BrowserProgramItem
+                : ProgramItem;
+              return <Item key={app.id} app={app} icons={icons} editing={editing} />;
             })}
           </div>
         </div>

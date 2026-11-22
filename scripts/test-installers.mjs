@@ -59,6 +59,8 @@ function sha256(input) {
 
 function fixture() {
   const state = initialState();
+  delete state.settings.trackBrowserSites;
+  state.settings.trackSites = true;
   state.createdAt = new Date("2025-11-01T12:00:00").getTime();
   state.apps = {
     [firefox]: {
@@ -228,7 +230,14 @@ for (let attempt = 0; ; attempt += 1) {
 }
 const updated = await runInstalledVersion(releaseInstaller, releaseVersion);
 assert.deepEqual(await profileHashes(), initialHashes, `${releaseVersion} changed the input history or icon`);
-assert.deepEqual(updated, baseline, "The update changed historical snapshots");
+function withoutWebsiteSetting(snapshots) {
+  return snapshots.map(({ settings: { trackSites, trackBrowserSites, ...settings }, ...snapshot }) => ({
+    ...snapshot, settings,
+  }));
+}
+assert.equal(baseline[0].settings.trackSites, true);
+assert.equal(updated[0].settings.trackBrowserSites, false);
+assert.deepEqual(withoutWebsiteSetting(updated), withoutWebsiteSetting(baseline), "The update changed historical snapshots");
 
 const populated = updated.find(({ date }) => date === populatedDay);
 const week = updated.find(({ date }) => date === weekEnd).week;
@@ -239,7 +248,8 @@ assert.equal(week.reduce((total, row) => total + row.totalMs, 0), 114 * minute);
 assert.equal(updated.find(({ date }) => date === emptyDay).totalMs, 0);
 assert.deepEqual(populated.entry, source.entries[populatedDay]);
 assert.deepEqual(populated.entries, source.entries);
-assert.deepEqual(populated.settings, source.settings);
+const { trackSites: _legacySites, ...preferencesAfterUpgrade } = source.settings;
+assert.deepEqual(populated.settings, { ...preferencesAfterUpgrade, trackBrowserSites: false });
 assert.deepEqual(populated.types, source.types);
 assert.deepEqual(populated.siteCategories, source.siteCategories);
 assert.deepEqual(populated.catalog, source.apps);
